@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "NoncePayment",
+    "slug": "noncepayment",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "noncepay",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
+    "android": {
+      "package": "com.noncepayment.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0B0B0F"
+      },
+      "permissions": [
+        "android.permission.NFC",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_ADVERTISE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.USE_BIOMETRIC"
+      ]
+    },
+    "plugins": [
+      "./plugins/withNfcHce",
+      ["expo-camera", { "cameraPermission": "Escanear codigos QR de pago" }],
+      ["expo-local-authentication", { "faceIDPermission": "Autorizar pagos" }],
+      ["react-native-ble-plx", { "isBackgroundEnabled": false, "modes": ["peripheral", "central"] }]
+    ],
+    "extra": {
+      "cluster": "devnet",
+      "eas": { "projectId": "TODO-crear-con-eas-init" }
+    }
+  }
+}
