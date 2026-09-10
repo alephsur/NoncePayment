@@ -83,9 +83,12 @@ phases 1–4 adapts to that reality, not the other way around.
       send. And the test that matters most: **the double spend has to fail**
       — the voucher is built by the **real SDK**, confirms 63s after signing, and two
       vouchers from the same banknote leave the second one uncashable. **21 tests**
-- [ ] Day 9 — Deploy to devnet, public address in the README
+- [x] Day 9 — Deploy to devnet, public address in the README
+      — `CwwpVy2fL2NoVYS1wZgvhfpumoCCQdmZd8194uKRpDo7`, and `scripts/devnet-smoke.ts`
+      runs the whole loop against it on chain
 
-**Phase output:** program on devnet, green suite, double spend proven impossible.
+**Phase output:** ✅ program on devnet, green suite (21 tests), double spend proven
+impossible — on localnet and on devnet.
 
 ---
 

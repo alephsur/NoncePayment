@@ -19,13 +19,35 @@ and because advancing that nonce **invalidates any other transaction signed agai
 
 ---
 
+## On chain
+
+| | |
+|---|---|
+| Program (devnet) | [`CwwpVy2fL2NoVYS1wZgvhfpumoCCQdmZd8194uKRpDo7`](https://solscan.io/account/CwwpVy2fL2NoVYS1wZgvhfpumoCCQdmZd8194uKRpDo7?cluster=devnet) |
+| Instructions | `open_slot` · `redeem` · `reclaim` |
+
+The whole loop, run against that deployed program with the real SDK
+(`program/scripts/devnet-smoke.ts`):
+
+1. [**Banknote loaded**](https://solscan.io/tx/62sfcL5YmB4uvmd69rCSdbbNZ28a9SSPy44hDq5pFTCZbTgthA66i3BAhTwdoSZkExzmPjSWrxQR5gfLTqLRah9D?cluster=devnet) — 5 locked in a vault, paired with a durable nonce
+2. **Two vouchers signed with no network**, 800 bytes each, from the same banknote to two
+   different people. Both verify offline; neither recipient can tell there is a problem
+3. [**The first one gets paid**](https://solscan.io/tx/4qKEjcLx1x5oCLvXmPSkH53wfiNHBQDUKskHCxvd7anAo3ba57gYZfyC31WpcZ4yjZpDZVcUZGcui812ANSRiPQ?cluster=devnet)
+4. **The second one is dead**: `Blockhash not found`
+
+And, separately, the durability claim itself — a transaction
+[signed and sent 11.2 minutes later](https://solscan.io/tx/5kP24xBBwzUkC6zcYNkpy3q7yzSbL9LLJHZX1AEL64PtwDqi6A1NpNJsceinQtq6qSbrDJXYPFjgYf5yKxoXKGyD?cluster=devnet),
+where a normal one expires after about a minute.
+
+---
+
 ## Status
 
 | Component | Status |
 |---|---|
 | **Durable nonce spike** | ✅ **proven on devnet** — [11.2 min old tx, confirmed](https://solscan.io/tx/5kP24xBBwzUkC6zcYNkpy3q7yzSbL9LLJHZX1AEL64PtwDqi6A1NpNJsceinQtq6qSbrDJXYPFjgYf5yKxoXKGyD?cluster=devnet) |
 | Toolchain (Solana CLI, Anchor, test validator) | ✅ installed and running |
-| Anchor program (`open_slot` / `redeem` / `reclaim`) | ✅ builds; deployed to localnet, not yet to devnet |
+| Anchor program (`open_slot` / `redeem` / `reclaim`) | ✅ **deployed to devnet**, full loop verified on chain |
 | Program tests — `open_slot`, `redeem`, `reclaim`, durable nonce | ✅ **21/21 passing** |
 | SDK: voucher construction and verification | ✅ **9/9 tests passing**, and pinned against the program on chain |
 | RN polyfills + app entry point | 🚧 written, spike pending on a real device |
@@ -71,6 +93,9 @@ RPC=http://127.0.0.1:8899 npx tsx 01-durable-nonce.ts all
 
 # 3. Program — builds, deploys to a throwaway validator and runs the suite
 cd ../program && npm install && anchor test --provider.cluster localnet
+
+# 3b. The same loop against the program already live on devnet (~0.024 SOL)
+npx tsx scripts/devnet-smoke.ts
 
 # 4. App (a development build is mandatory — Expo Go will NOT work)
 cd ../app && npm install && npx expo prebuild -p android && npm run build:dev
