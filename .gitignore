@@ -13,3 +13,5 @@ target/
 test-ledger/
 spikes/.spike-state.json
 *.keypair.json
+.idea/
+.vscode/

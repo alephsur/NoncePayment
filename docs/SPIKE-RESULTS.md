@@ -52,12 +52,36 @@ One crate escapes the fallback and still has to be pinned by hand in `Cargo.lock
 `cargo update -p blake3 --precise 1.5.5` settles it. **Commit `Cargo.lock`** — it's what
 keeps the build reproducible.
 
+### The Android toolchain, and why `expo run:android` didn't find it
+
+Worth recording, because none of it is guessable and it is four separate walls in a row.
+
+| Piece | What was wrong | Fix |
+|---|---|---|
+| `ANDROID_HOME` | unset. Expo falls back to `~/Android/sdk`, and Android Studio installs to `~/Android/**S**dk` — capital S | exported in `~/.bashrc` |
+| JDK | the only JDK was Android Studio's bundled JBR, **Java 25**. The project's Gradle is 8.10.2, which does not accept it | Temurin **17** in `~/.jdks`, `JAVA_HOME` points at it |
+| SDK platform | only `android-37.0` installed; the project builds against **35** | `sdkmanager "platforms;android-35"` |
+| build-tools | only `36.0.0`; the project pins **35.0.0** | `sdkmanager "build-tools;35.0.0"` |
+| NDK | absent. React Native needs it to build native modules | `sdkmanager "ndk;26.1.10909125"` (~2.5 GB) |
+| `cmdline-tools` | absent, so there was no `sdkmanager` to fix any of the above with | downloaded from Google |
+
+Android Studio itself lives in `~/Downloads/android-studio-quail3-linux/` — worth moving
+somewhere less disposable at some point.
+
+With all of that, `./gradlew assembleDebug` finishes in about six minutes and produces
+`android/app/build/outputs/apk/debug/app-debug.apk`. **The Android build chain works
+end to end.** What is still missing is a phone plugged in: `adb devices` lists none.
+
 ### Still blocked from day 1
 
-- **Spike 00 (polyfills inside the app).** Needs a real Android device and an EAS
-  development build; it can't be closed from the dev environment. **This is risk #1 of
-  the project**: until `Keypair.generate()` prints a key inside the app, phase 2 is
+- **Spike 00 (polyfills inside the app).** No longer blocked on tooling — the APK
+  builds locally. It now needs only a device: `adb devices` is empty. **This is risk #1
+  of the project**: until `Keypair.generate()` prints a key inside the app, phase 2 is
   standing on nothing.
+
+  No extra code is needed to run it. `App.tsx` calls `ensureDeviceKey()` on launch,
+  which calls `Keypair.generate()` on first run, and `HomeScreen` prints the key. If the
+  app opens and shows one, the polyfills work.
 - ~~**Devnet airdrop.**~~ Resolved — the account was funded by hand on 2026-09-10, and
   the devnet run of spike 01 is done (below).
 
