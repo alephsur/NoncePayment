@@ -35,6 +35,20 @@ export const usdc = (n: number) => BigInt(Math.round(n * 10 ** USDC_DECIMALS));
 export const bn = (v: bigint) => new anchor.BN(v.toString());
 
 /**
+ * The Anchor error code of a failed transaction.
+ *
+ * `.rpc()` hands back a parsed AnchorError, but a voucher goes out through plain
+ * `sendAndConfirmTransaction` — the way a real one does — and that only gives us a
+ * SendTransactionError with the program logs. The code has to be read out of them.
+ */
+export function anchorErrorCode(e: any): string | undefined {
+  if (e?.error?.errorCode?.code) return e.error.errorCode.code;
+  const logs: string[] = e?.logs ?? e?.transactionLogs ?? [];
+  const match = logs.join('\n').match(/Error Code: (\w+)/);
+  return match?.[1] ?? String(e?.message ?? e).match(/Error Code: (\w+)/)?.[1];
+}
+
+/**
  * Slot indices are per owner, and every test file shares the same validator. If each
  * context started counting from zero, the second file would collide with the first
  * file's PDAs. Hence a module-level counter.
@@ -129,6 +143,11 @@ export class TestContext {
     return ctx;
   }
 
+  /** Tops up an account from the provider wallet. Amount in SOL. */
+  async airdrop(to: PublicKey, sol: number) {
+    await this.fund([[to, sol * LAMPORTS_PER_SOL]]);
+  }
+
   private async fund(destinations: [PublicKey, number][]) {
     const tx = new Transaction().add(
       ...destinations.map(([toPubkey, lamports]) =>
@@ -143,9 +162,14 @@ export class TestContext {
    * travels: the owner isn't present when it's redeemed.
    */
   async sendAsDevice(ixs: TransactionInstruction[]): Promise<string> {
+    return this.sendAs(this.deviceKey, ixs);
+  }
+
+  /** Same, but signed and paid for by an arbitrary key. */
+  async sendAs(signer: Keypair, ixs: TransactionInstruction[]): Promise<string> {
     const tx = new Transaction().add(...ixs);
-    tx.feePayer = this.deviceKey.publicKey;
-    return sendAndConfirmTransaction(this.conn, tx, [this.deviceKey]);
+    tx.feePayer = signer.publicKey;
+    return sendAndConfirmTransaction(this.conn, tx, [signer]);
   }
 
   /** One index per banknote: two slots of the same owner can't share one. */

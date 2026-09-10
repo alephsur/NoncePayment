@@ -75,10 +75,14 @@ phases 1–4 adapts to that reality, not the other way around.
 - [x] Day 6 — `redeem` with a happy-path test
       — full payment, partial payment with change, rent returned, and a recipient with
       no USDC account. **9 tests passing** across the suite
-- [ ] Day 7 — `reclaim` + edge-case tests (zero amount, excessive amount,
+- [x] Day 7 — `reclaim` + edge-case tests (zero amount, excessive amount,
       unauthorized signer, wrong mint, wrong owner)
-- [ ] Day 8 — **Integration test with the nonce**: sign `redeem` offline, wait,
+      — plus two the list didn't have: a vault borrowed from another banknote, and
+      reclaiming one that was already spent
+- [x] Day 8 — **Integration test with the nonce**: sign `redeem` offline, wait,
       send. And the test that matters most: **the double spend has to fail**
+      — the voucher is built by the **real SDK**, confirms 63s after signing, and two
+      vouchers from the same banknote leave the second one uncashable. **21 tests**
 - [ ] Day 9 — Deploy to devnet, public address in the README
 
 **Phase output:** program on devnet, green suite, double spend proven impossible.
