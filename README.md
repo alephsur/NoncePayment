@@ -50,7 +50,7 @@ where a normal one expires after about a minute.
 | Anchor program (`open_slot` / `redeem` / `reclaim`) | ✅ **deployed to devnet**, full loop verified on chain |
 | Program tests — `open_slot`, `redeem`, `reclaim`, durable nonce | ✅ **21/21 passing** |
 | SDK: voucher construction and verification | ✅ **9/9 tests passing**, and pinned against the program on chain |
-| RN polyfills + app entry point | 🚧 written and type-clean, spike pending on a real device |
+| RN polyfills + app entry point | ✅ **proven on device** — `Keypair.generate()` runs inside the app |
 | NFC HCE config plugin | ✅ written, spike pending |
 | QR transport | ✅ scaffolding ready |
 | BLE transport | 🚧 blocked on the spike (day 3) |
@@ -112,8 +112,8 @@ npx expo run:android       # local build
 
 ## The three risks
 
-1. **Solana polyfills on RN** — settle it on day 1. It eats two days if it catches you on day 20.
-   Still open: it needs a real device.
+1. ~~**Solana polyfills on RN**~~ — ✅ settled. Three real defects, all fixed; the app
+   generates a keypair on screen.
 2. **NFC HCE** — hard rule: if it doesn't work by day 4, it gets buried and we ship BLE + QR.
 3. **Running out of time for the video** — the last 4 days are untouchable.
 

@@ -22,10 +22,12 @@
 **The most important phase of the project.** Throwaway code, zero UI, zero pretty
 architecture. Only answers to questions that could change the entire plan.
 
-### Day 1 — Polyfills and toolchain
-- [ ] `expo prebuild` + development build on a real Android device via EAS
-- [ ] **Risk #1:** `Buffer`, `crypto.getRandomValues`, `structuredClone` working
+### Day 1 — Polyfills and toolchain · ✅
+- [x] `expo prebuild` + a development build that installs and runs
+      — built locally rather than via EAS; runs on an Android 15 emulator
+- [x] **Risk #1:** `Buffer`, `crypto.getRandomValues`, `structuredClone` working
       — generate a `Keypair` inside the app and see it on screen
+      — **done**, and it took three real fixes to get there; see [`SPIKE-RESULTS.md`](SPIKE-RESULTS.md)
 - [x] Anchor + Solana CLI installed, `solana-test-validator` coming up
       — Anchor 0.31.1 / Solana 2.1.0 via `avm`. `anchor build` needed a dependency-resolution
       fix; see [`SPIKE-RESULTS.md`](SPIKE-RESULTS.md)

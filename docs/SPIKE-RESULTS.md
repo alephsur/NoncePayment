@@ -5,7 +5,7 @@
 
 | # | Question | Day | Status |
 |---|---|---|---|
-| 00 | Do the Solana polyfills work inside the app? | 1 | 🚧 blocked on a device |
+| 00 | Do the Solana polyfills work inside the app? | 1 | ✅ **YES** |
 | 01 | Does a durable-nonce tx survive the passage of time? | 2 | ✅ **YES** — on localnet *and* devnet |
 | 02 | Can 800 bytes move over BLE between two phones? | 3 | ⬜ |
 | 03 | Can 32 bytes move over NFC HCE? | 4 | ⬜ |
@@ -74,16 +74,68 @@ end to end.** What is still missing is a phone plugged in: `adb devices` lists n
 
 ### Still blocked from day 1
 
-- **Spike 00 (polyfills inside the app).** No longer blocked on tooling — the APK
-  builds locally. It now needs only a device: `adb devices` is empty. **This is risk #1
-  of the project**: until `Keypair.generate()` prints a key inside the app, phase 2 is
-  standing on nothing.
-
-  No extra code is needed to run it. `App.tsx` calls `ensureDeviceKey()` on launch,
-  which calls `Keypair.generate()` on first run, and `HomeScreen` prints the key. If the
-  app opens and shows one, the polyfills work.
+(Nothing from day 1 is blocked any more — see spike 00 below.)
 - ~~**Devnet airdrop.**~~ Resolved — the account was funded by hand on 2026-09-10, and
   the devnet run of spike 01 is done (below).
+
+---
+
+## Spike 00 — polyfills inside the app · ✅ ANSWERED
+
+**Risk #1 of the project, and it was real.** Run on an Android 15 emulator (`noncepay`
+AVD, x86_64, KVM-accelerated). No physical device needed for this one: it only asks
+whether the JS runtime can generate a keypair, not whether NFC or BLE work.
+
+The app launches, and the home screen reads:
+
+```
+0 billetes · dispositivo 9yEY...Se5F
+```
+
+That short key is the output of `Keypair.generate()` running inside Hermes, so in one
+line it proves `crypto.getRandomValues`, `Buffer` and `structuredClone` all work. Force-
+stopping and relaunching shows the **same** key, which also proves the `expo-secure-store`
+round-trip. **Phase 2 has ground to stand on.**
+
+### Three real defects, in the order they surfaced
+
+Getting there took four rebuilds, and every failure was a genuine bug that would have
+cost a day later.
+
+1. **`require('process')` in `index.js`.** Metro refuses it outright — the native React
+   runtime has no Node standard library — so the bundle never built. Nothing needed real
+   Node semantics, only `process.env` to exist, so it is now an empty object and no
+   dependency.
+
+2. **`expo-asset` was missing**, so Metro wouldn't even start. Installing the JS package
+   is only half of it: the APK has to be **rebuilt**, or the app dies at runtime with
+   `Cannot find native module 'ExpoAsset'`. Worth remembering — adding any Expo module
+   from now on means a rebuild, not just an install.
+
+3. **The polyfills ran too late, and this is the one that matters.** `index.js` set
+   `global.Buffer` *after* its import statements. **ES module imports are hoisted**, so
+   `./src/App` — and with it @solana/web3.js — loaded first and the app died with
+   `Property 'Buffer' doesn't exist`. The file's own comment insisted the order mattered,
+   and the order was wrong.
+
+   The fix is structural: the polyfills now live in `app/polyfills.js`, and `index.js`
+   imports it first. A module's side effects run when it is imported, so the assignments
+   are done before the next import line is reached. Reordering statements inside one file
+   could never have fixed this.
+
+Metro also needed teaching about the SDK: `@noncepayment/sdk` is a `file:` dependency
+symlinked outside the app, so `app/metro.config.js` now adds it to `watchFolders` and
+pins one copy of `@solana/web3.js`, `@solana/spl-token` and `buffer` so `instanceof`
+checks can't fail across duplicated instances.
+
+### How to run it again
+
+```bash
+emulator -avd noncepay -no-window -no-audio -gpu swiftshader_indirect &
+adb wait-for-device
+cd app && npx expo run:android      # or: adb install -r <apk> && npx expo start --dev-client
+adb exec-out screencap -p > shot.png
+```
 
 ---
 

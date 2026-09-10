@@ -48,7 +48,8 @@
             "central"
           ]
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "extra": {
       "cluster": "devnet"
