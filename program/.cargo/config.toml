@@ -1,0 +1,8 @@
+# Anchor 0.31.1's SBF toolchain ships Rust 1.79 (platform-tools v1.43), while the host
+# cargo is far newer. Without this, the resolver picks transitive dependencies that use
+# edition2024 and `anchor build` blows up parsing their manifests.
+#
+# `fallback` makes cargo drop back to the newest version compatible with the package's
+# declared `rust-version`. It's that, or pinning crates by hand one at a time.
+[resolver]
+incompatible-rust-versions = "fallback"

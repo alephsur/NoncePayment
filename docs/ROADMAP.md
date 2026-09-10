@@ -26,16 +26,25 @@ architecture. Only answers to questions that could change the entire plan.
 - [ ] `expo prebuild` + development build on a real Android device via EAS
 - [ ] **Risk #1:** `Buffer`, `crypto.getRandomValues`, `structuredClone` working
       — generate a `Keypair` inside the app and see it on screen
-- [ ] Anchor + Solana CLI installed, `solana-test-validator` coming up
+- [x] Anchor + Solana CLI installed, `solana-test-validator` coming up
+      — Anchor 0.31.1 / Solana 2.1.0 via `avm`. `anchor build` needed a dependency-resolution
+      fix; see [`SPIKE-RESULTS.md`](SPIKE-RESULTS.md)
 
 > If `Keypair.generate()` doesn't work inside the app by the end of day 1, **do not move
 > on to anything else**. It's the foundation.
 
-### Day 2 — Durable nonce end to end
-- [ ] `spikes/01-durable-nonce.ts` on devnet: create the nonce, sign a tx, wait
-      **more than 10 minutes**, send it, and have it confirm
-- [ ] Confirm that a second tx signed against the same nonce **fails**
+### Day 2 — Durable nonce end to end · ✅
+- [x] `spikes/01-durable-nonce.ts`: create the nonce, sign a tx, wait past blockhash
+      expiry, send it, and have it confirm
+      — done on localnet, against a control tx that expires. Devnet still pending: the
+      faucet rate-limits us
+- [x] Confirm that a second tx signed against the same nonce **fails**
       (this IS the anti-double-spend guarantee; you have to watch it fail yourself)
+      — `Blockhash not found`, watched with our own eyes
+
+> Results: [`SPIKE-RESULTS.md`](SPIKE-RESULTS.md). The proof got stronger than planned:
+> instead of trusting the clock, it signs a **control** tx with a normal blockhash at the
+> same instant and shows it die while the durable one confirms.
 
 ### Day 3 — BLE between two phones
 - [ ] Move 800 bytes from one Android device to another
@@ -60,7 +69,9 @@ phases 1–4 adapts to that reality, not the other way around.
 
 ## Phase 1 · Days 5–9 · Anchor program
 
-- [ ] Day 5 — `anchor keys sync`, deploy to localnet, `open_slot` with a test
+- [x] Day 5 — `anchor keys sync`, deploy to localnet, `open_slot` with a test
+      — program id `CwwpVy2fL2NoVYS1wZgvhfpumoCCQdmZd8194uKRpDo7`, deployed to localnet,
+      **5 tests passing** in `program/tests/open-slot.ts`
 - [ ] Day 6 — `redeem` with a happy-path test
 - [ ] Day 7 — `reclaim` + edge-case tests (zero amount, excessive amount,
       unauthorized signer, wrong mint, wrong owner)

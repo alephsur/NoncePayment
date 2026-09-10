@@ -1,0 +1,19 @@
+{
+  "name": "noncepayment-program",
+  "private": true,
+  "scripts": {
+    "test": "anchor test --provider.cluster localnet",
+    "test:skip-build": "anchor test --skip-build --skip-deploy --provider.cluster localnet"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.1",
+    "@solana/spl-token": "^0.4.9"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.20",
+    "@types/mocha": "^10.0.9",
+    "chai": "^4.5.0",
+    "ts-mocha": "^10.0.0",
+    "typescript": "^5.6.3"
+  }
+}

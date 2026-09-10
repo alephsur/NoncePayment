@@ -29,8 +29,7 @@ use anchor_lang::solana_program::system_program;
 use anchor_spl::associated_token::AssociatedToken;
 use anchor_spl::token::{self, CloseAccount, Mint, Token, TokenAccount, Transfer};
 
-// TODO: reemplazar tras `anchor keys sync` (día 5 del roadmap).
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("CwwpVy2fL2NoVYS1wZgvhfpumoCCQdmZd8194uKRpDo7");
 
 /// Un nonce account del System Program ocupa exactamente 80 bytes.
 const NONCE_ACCOUNT_LEN: usize = 80;

@@ -1,8 +1,8 @@
 import { PublicKey } from '@solana/web3.js';
 
-/** Reemplazar tras `anchor keys sync` + deploy a devnet (roadmap dia 5-9). */
+/** Comes from `anchor keys sync`. Not deployed to devnet yet (roadmap day 9). */
 export const PROGRAM_ID = new PublicKey(
-  'Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS',
+  'CwwpVy2fL2NoVYS1wZgvhfpumoCCQdmZd8194uKRpDo7',
 );
 
 /** USDC devnet. En mainnet: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v */

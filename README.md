@@ -23,9 +23,12 @@ and because advancing that nonce **invalidates any other transaction signed agai
 
 | Component | Status |
 |---|---|
-| Anchor program (`open_slot` / `redeem` / `reclaim`) | ✅ written, not yet deployed |
+| **Durable nonce spike** | ✅ **proven** — see [`docs/SPIKE-RESULTS.md`](docs/SPIKE-RESULTS.md) |
+| Toolchain (Solana CLI, Anchor, test validator) | ✅ installed and running |
+| Anchor program (`open_slot` / `redeem` / `reclaim`) | ✅ builds; deployed to localnet, not yet to devnet |
+| Program tests — `open_slot` | ✅ **5/5 passing** |
 | SDK: voucher construction and verification | ✅ **9/9 tests passing** |
-| RN polyfills + app entry point | ✅ written |
+| RN polyfills + app entry point | 🚧 written, spike pending on a real device |
 | NFC HCE config plugin | ✅ written, spike pending |
 | QR transport | ✅ scaffolding ready |
 | BLE transport | 🚧 blocked on the spike (day 3) |
@@ -61,15 +64,13 @@ NoncePayment/
 # 1. SDK — the core. Tests run with no network and no chain.
 cd packages/sdk && npm install && npx tsx test/voucher.test.ts
 
-# 2. Durable nonce spike (needs devnet SOL)
+# 2. Durable nonce spike — the proof the whole product rests on (~2 min, no faucet)
 cd ../../spikes && npm install
-solana airdrop 2 --url devnet
-npx tsx 01-durable-nonce.ts create
-#  ... wait >10 minutes ...
-npx tsx 01-durable-nonce.ts send
+solana-test-validator --reset --quiet &
+RPC=http://127.0.0.1:8899 npx tsx 01-durable-nonce.ts all
 
-# 3. Program
-cd ../program && anchor keys sync && anchor build && anchor test
+# 3. Program — builds, deploys to a throwaway validator and runs the suite
+cd ../program && npm install && anchor test --provider.cluster localnet
 
 # 4. App (a development build is mandatory — Expo Go will NOT work)
 cd ../app && npm install && npx expo prebuild -p android && npm run build:dev
@@ -80,6 +81,7 @@ cd ../app && npm install && npx expo prebuild -p android && npm run build:dev
 ## The three risks
 
 1. **Solana polyfills on RN** — settle it on day 1. It eats two days if it catches you on day 20.
+   Still open: it needs a real device.
 2. **NFC HCE** — hard rule: if it doesn't work by day 4, it gets buried and we ship BLE + QR.
 3. **Running out of time for the video** — the last 4 days are untouchable.
 

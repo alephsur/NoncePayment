@@ -6,7 +6,7 @@ Its only job is to answer questions that could change the entire plan.
 | # | Question | Day | Kill rule |
 |---|---|---|---|
 | 00 | Do the Solana polyfills work inside the app? | 1 | Blocking. Without this there is no project |
-| 01 | Does a durable-nonce tx survive >10 min? | 2 | Blocking. It's the core of the product |
+| 01 | Does a durable-nonce tx survive >10 min? | 2 | ✅ **YES** — answered |
 | 02 | Can 800 bytes move over BLE between two phones? | 3 | If not, QR remains |
 | 03 | Can 32 bytes move over NFC HCE? | 4 | **If not: NFC gets buried and we move on** |
 
@@ -23,21 +23,44 @@ console.log(kp.publicKey.toBase58());
 If that prints a key, the foundation is in place. If it blows up, check the import order
 in `app/index.js` — `react-native-get-random-values` goes first, before everything else.
 
-## 01 — Durable nonce
+## 01 — Durable nonce · ✅ ANSWERED (2026-09-10)
+
+Full results in [`../docs/SPIKE-RESULTS.md`](../docs/SPIKE-RESULTS.md).
+
+### Full automated proof (localnet, ~2 min)
+
+Localnet produces slots fast, so a normal blockhash expires in ~66s instead of ~90.
+Same proof, it just fits in two minutes instead of ten.
 
 ```bash
 npm install
-solana-keygen new -o ~/.config/solana/id.json   # if you don't have one already
-solana airdrop 2 --url devnet
-npm run nonce
+solana-test-validator --reset --quiet &
+RPC=http://127.0.0.1:8899 npx tsx 01-durable-nonce.ts all
 ```
 
-What has to happen:
-1. The nonce account is created
-2. A transaction is signed and saved to disk
-3. **You wait more than 10 minutes** (or leave it and come back tomorrow)
-4. You send it and it confirms
-5. A second transaction against the same nonce **fails**
+It signs **two transactions at the same instant** — one with a normal blockhash (the
+control) and one with a durable nonce — waits until the control blockhash has genuinely
+expired (polling `isBlockhashValid`, not a guessed `sleep`), and sends both:
 
-Step 5 is the one that matters. It's the anti-double-spend guarantee of the whole
-product: you have to watch it fail with your own eyes before building anything on top.
+1. The control → `Blockhash not found`. It expired.
+2. The durable one, signed at the same moment → **confirms**.
+3. A second tx (different recipient, different amount) against the same nonce value →
+   `Blockhash not found`.
+
+Step 3 is the one that matters: it's the anti-double-spend guarantee of the product, and
+Solana's runtime provides it, not our code. Watch out for the trap: **resending the same
+tx proves nothing** (it could fail on deduplication alone). You have to sign a *different*
+transaction.
+
+### The slow devnet proof
+
+Still pending: the faucet returns a rate limit. The key has to be funded by hand from
+<https://faucet.solana.com>.
+
+```bash
+solana airdrop 2 --url devnet
+npx tsx 01-durable-nonce.ts create   # signs and saves
+#  ... wait >10 minutes (or leave it and come back tomorrow) ...
+npx tsx 01-durable-nonce.ts send     # has to confirm
+npx tsx 01-durable-nonce.ts double   # has to fail
+```

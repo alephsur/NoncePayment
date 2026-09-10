@@ -3,6 +3,9 @@ name = "nonce-payment"
 version = "0.1.0"
 description = "Offline-capable USDC cash notes on Solana"
 edition = "2021"
+# What platform-tools v1.43 ships, the SBF toolchain of Anchor 0.31.1.
+# Guides the dependency resolver; see ../../.cargo/config.toml
+rust-version = "1.79.0"
 
 [lib]
 crate-type = ["cdylib", "lib"]
