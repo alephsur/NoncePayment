@@ -50,7 +50,7 @@ where a normal one expires after about a minute.
 | Anchor program (`open_slot` / `redeem` / `reclaim`) | ✅ **deployed to devnet**, full loop verified on chain |
 | Program tests — `open_slot`, `redeem`, `reclaim`, durable nonce | ✅ **21/21 passing** |
 | SDK: voucher construction and verification | ✅ **9/9 tests passing**, and pinned against the program on chain |
-| RN polyfills + app entry point | 🚧 written, spike pending on a real device |
+| RN polyfills + app entry point | 🚧 written and type-clean, spike pending on a real device |
 | NFC HCE config plugin | ✅ written, spike pending |
 | QR transport | ✅ scaffolding ready |
 | BLE transport | 🚧 blocked on the spike (day 3) |
@@ -98,7 +98,9 @@ cd ../program && npm install && anchor test --provider.cluster localnet
 npx tsx scripts/devnet-smoke.ts
 
 # 4. App (a development build is mandatory — Expo Go will NOT work)
-cd ../app && npm install && npx expo prebuild -p android && npm run build:dev
+#    npm install builds the SDK first, via its `prepare` script
+cd ../app && npm install && npm run typecheck
+npx expo prebuild -p android && npm run build:dev
 ```
 
 ---
