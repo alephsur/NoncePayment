@@ -1,160 +1,160 @@
-# Arquitectura
+# Architecture
 
-## 1. El problema en una frase
+## 1. The problem in one sentence
 
-Dos móviles sin conexión. Uno debe entregar valor al otro de forma que sea
-**infalsificable**, **canjeable después** y con **riesgo de doble gasto acotado**.
+Two phones with no connectivity. One must hand value to the other in a way that is
+**unforgeable**, **redeemable later**, and carries a **bounded double-spend risk**.
 
-## 2. Las tres piezas
+## 2. The three pieces
 
-### 2.1 Durable nonces — por qué la transacción no caduca
+### 2.1 Durable nonces — why the transaction never expires
 
-Una transacción normal de Solana lleva un `recentBlockhash` y muere en ~60 segundos
-(150 slots). Inútil para firmar hoy y liquidar mañana.
+A normal Solana transaction carries a `recentBlockhash` and dies in ~60 seconds
+(150 slots). Useless if you want to sign today and settle tomorrow.
 
-Un **nonce account** es una cuenta de 80 bytes del System Program que guarda un
-blockhash estable. Si tu transacción usa ese valor como `recentBlockhash` y su
-**primera instrucción** es `AdvanceNonceAccount`, la transacción **no caduca nunca**.
+A **nonce account** is an 80-byte System Program account that stores a stable blockhash.
+If your transaction uses that value as its `recentBlockhash` and its **first instruction**
+is `AdvanceNonceAccount`, the transaction **never expires**.
 
-La propiedad que lo convierte en dinero:
+The property that turns this into money:
 
-> Avanzar el nonce cambia el blockhash almacenado, lo que **invalida cualquier otra
-> transacción firmada contra el valor anterior**.
+> Advancing the nonce changes the stored blockhash, which **invalidates any other
+> transaction signed against the previous value**.
 
-Un nonce = un uso. Lo garantiza el runtime de Solana. Nosotros no tenemos que hacer nada.
+One nonce = one use. The Solana runtime enforces it. We don't have to do anything.
 
-### 2.2 Slots colateralizados — por qué el billete vale lo que dice
+### 2.2 Collateralized slots — why the banknote is worth what it says
 
-Cada billete es un `Slot` PDA con:
+Every banknote is a `Slot` PDA holding:
 
-| Campo | Para qué |
+| Field | Purpose |
 |---|---|
-| `owner` | wallet real del usuario. Recibe el cambio y la renta |
-| `authorized_signer` | clave de dispositivo autorizada a gastarlo offline |
-| `nonce_account` | el nonce emparejado, de uso único |
-| `amount` | colateral bloqueado en el vault PDA |
+| `owner` | the user's real wallet. Receives change and rent back |
+| `authorized_signer` | the device key allowed to spend it offline |
+| `nonce_account` | the paired, single-use nonce |
+| `amount` | collateral locked in the vault PDA |
 
-El dinero **está bloqueado** en un vault PDA controlado por el programa. Un voucher no
-es una promesa de pago: es una orden sobre fondos que ya están retenidos.
+The money is **locked** in a vault PDA controlled by the program. A voucher is not a
+promise to pay: it is an order against funds that are already held.
 
-### 2.3 Clave de dispositivo — por qué no dependemos de la wallet offline
+### 2.3 Device key — why we don't depend on the wallet while offline
 
-Esta es la decisión de arquitectura más importante del proyecto.
+This is the most important architectural decision in the project.
 
-**Enfoque ingenuo:** firmar el voucher offline con Mobile Wallet Adapter / Seed Vault.
-**Problema:** MWA implica cambiar de app, y no está garantizado que el flujo completo
-funcione en modo avión. Es un riesgo enorme para el componente central del producto.
+**Naive approach:** sign the voucher offline with Mobile Wallet Adapter / Seed Vault.
+**Problem:** MWA means switching apps, and there is no guarantee the whole flow works in
+airplane mode. That's an enormous risk to put on the core component of the product.
 
-**Nuestro enfoque:** un patrón de *session key*.
-
-```
-Wallet real (Seed Vault, vía MWA)     Clave de dispositivo (SecureStore + biometría)
-──────────────────────────────        ────────────────────────────────────────────
-Solo ONLINE                            Funciona SIEMPRE, sin red
-Custodia todo el saldo                 Solo puede gastar slots ya financiados
-Autoriza la clave de dispositivo       Es nonce authority y fee payer
-Firma `open_slot` y `reclaim`          Firma `redeem` offline
-```
-
-Tres ventajas de golpe:
-
-1. **Elimina el mayor riesgo técnico** — nada del camino offline depende de MWA.
-2. **Acota el radio de explosión** — si te roban el móvil desbloqueado, el atacante
-   solo puede gastar los billetes cargados, nunca el saldo completo.
-3. **Es una UX mejor** — pagar es una huella, no un salto a otra app.
-
-Y MWA sigue integrado de verdad (requisito del hackathon): es lo que custodia el dinero.
-
-## 3. Anatomía de un voucher
+**Our approach:** a *session key* pattern.
 
 ```
-Transacción firmada (~599 bytes crudos / ~800 en base64 — medido en los tests)
-
-  ix[0]  SystemProgram::AdvanceNonceAccount    <- obligatoriamente la primera
-  ix[1]  CreateAssociatedTokenAccountIdempotent <- el receptor puede no tener ATA
-  ix[2]  nonce_payment::redeem(amount)          <- el pago
-
-  recentBlockhash = valor del nonce cacheado    <- no caduca
-  feePayer        = clave de dispositivo
-  firmas          = [clave de dispositivo]
+Real wallet (Seed Vault, via MWA)      Device key (SecureStore + biometrics)
+──────────────────────────────         ────────────────────────────────────────────
+ONLINE only                            Always works, no network needed
+Custodies the entire balance           Can only spend already-funded slots
+Authorizes the device key              Acts as nonce authority and fee payer
+Signs `open_slot` and `reclaim`        Signs `redeem` offline
 ```
 
-600 bytes entran de sobra en un QR. Ese dato, medido y no estimado, es lo que valida
-toda la estrategia de transportes.
+Three wins at once:
 
-## 4. Qué puede verificar el receptor sin red
+1. **It removes the biggest technical risk** — nothing on the offline path depends on MWA.
+2. **It bounds the blast radius** — if your unlocked phone is stolen, the attacker can
+   only spend the loaded banknotes, never the full balance.
+3. **It's better UX** — paying is a fingerprint, not a jump to another app.
 
-`verifyVoucher()` comprueba, sin una sola llamada de red:
+And MWA is still genuinely integrated (a hackathon requirement): it's what custodies the money.
 
-- ✅ firma ed25519 auténtica sobre el mensaje exacto
-- ✅ la transacción es durable (`AdvanceNonceAccount` va la primera)
-- ✅ llama a nuestro programa, instrucción `redeem`
-- ✅ el destinatario soy yo
-- ✅ el PDA del slot deriva del owner declarado
-- ✅ los metadatos coinciden con la transacción firmada (si mienten, se rechaza)
-- ❌ **que el slot exista y tenga colateral** ← imposible sin red
+## 3. Anatomy of a voucher
 
-De ahí el enum `VerificationLevel`:
+```
+Signed transaction (~599 raw bytes / ~800 in base64 — measured in the tests)
 
-| Nivel | Qué significa |
+  ix[0]  SystemProgram::AdvanceNonceAccount    <- must be first
+  ix[1]  CreateAssociatedTokenAccountIdempotent <- the recipient may not have an ATA
+  ix[2]  nonce_payment::redeem(amount)          <- the payment
+
+  recentBlockhash = cached nonce value          <- never expires
+  feePayer        = device key
+  signatures      = [device key]
+```
+
+600 bytes fit comfortably in a QR code. That number — measured, not estimated — is what
+validates the entire transport strategy.
+
+## 4. What the recipient can verify with no network
+
+`verifyVoucher()` checks all of the following without a single network call:
+
+- ✅ an authentic ed25519 signature over the exact message
+- ✅ the transaction is durable (`AdvanceNonceAccount` comes first)
+- ✅ it calls our program, `redeem` instruction
+- ✅ I am the recipient
+- ✅ the slot PDA derives from the declared owner
+- ✅ the metadata matches the signed transaction (if it lies, it's rejected)
+- ❌ **that the slot exists and holds collateral** ← impossible without network
+
+Hence the `VerificationLevel` enum:
+
+| Level | What it means |
 |---|---|
-| `CRYPTO_ONLY` | Todo lo verificable offline. La firma es real, la estructura es correcta |
-| `CACHED_STATE` | Además, el slot estaba financiado en el último snapshot |
-| `ONCHAIN_CONFIRMED` | Confirmado en la cadena. Certeza total |
+| `CRYPTO_ONLY` | Everything verifiable offline. The signature is real, the structure is correct |
+| `CACHED_STATE` | Plus: the slot was funded as of the last snapshot |
+| `ONCHAIN_CONFIRMED` | Confirmed on chain. Full certainty |
 
-La UI del receptor muestra el nivel explícitamente. Es honesto y además es buen producto.
+The recipient's UI shows the level explicitly. It's honest, and it's also good product.
 
-## 5. Flujos
+## 5. Flows
 
-### Cargar (ONLINE)
+### Load (ONLINE)
 ```
-Usuario elige denominaciones  →  MWA autoriza
-  → por cada billete: crear nonce account + open_slot
-  → cachear {slot, nonceValue} en el ledger local
-  → prefinanciar la clave de dispositivo con ~0.01 SOL (fees + renta de ATAs)
-```
-
-### Pagar (OFFLINE)
-```
-Importe + destinatario  →  seleccionar el billete más pequeño que cubra
-  → biometría  →  buildVoucher() [sin red]
-  → transporte: NFC handshake → BLE, o QR
-  → marcar el slot como gastado + encolar para liquidar
+User picks denominations  →  MWA authorizes
+  → for each banknote: create nonce account + open_slot
+  → cache {slot, nonceValue} in the local ledger
+  → prefund the device key with ~0.01 SOL (fees + ATA rent)
 ```
 
-### Cobrar (OFFLINE)
+### Pay (OFFLINE)
 ```
-Escuchar  →  recibir bytes  →  verifyVoucher() [sin red]
-  → mostrar importe + nivel de verificación
-  → encolar; si hay red, liquidar ya
-```
-
-### Liquidar (ONLINE, automático)
-```
-Tarea en background  →  ¿hay red?  →  enviar transacciones pendientes
-  → el nonce garantiza que solo una prospera por slot
+Amount + recipient  →  select the smallest banknote that covers it
+  → biometrics  →  buildVoucher() [no network]
+  → transport: NFC handshake → BLE, or QR
+  → mark the slot as spent + enqueue for settlement
 ```
 
-## 6. Decisiones de diseño y sus alternativas
+### Receive (OFFLINE)
+```
+Listen  →  receive bytes  →  verifyVoucher() [no network]
+  → show amount + verification level
+  → enqueue; if there's network, settle right away
+```
 
-| Decisión | Alternativa descartada | Por qué |
+### Settle (ONLINE, automatic)
+```
+Background task  →  network available?  →  send pending transactions
+  → the nonce guarantees only one succeeds per slot
+```
+
+## 6. Design decisions and their alternatives
+
+| Decision | Rejected alternative | Why |
 |---|---|---|
-| Vault por slot | Vault compartido + contabilidad | El compartido ahorra ~0.002 SOL/billete, pero el aislado es trivial de razonar y de auditar. Con 29 días, gana la simplicidad |
-| Clave de dispositivo | Firmar con MWA offline | Elimina el mayor riesgo técnico del proyecto |
-| Fee payer = clave de dispositivo | Fee payer = receptor | El receptor pagando evita prefinanciar SOL, pero obliga a que sea él quien envíe. Con nuestro enfoque cualquiera puede liquidar. Anotado como optimización v2 |
-| Denominaciones fijas | Importe libre | Simplifica el programa, acota el riesgo y refuerza la metáfora del efectivo |
-| Legacy `Transaction` | `VersionedTransaction` | Serialización y parseo más simples; no necesitamos ALTs |
+| Vault per slot | Shared vault + accounting | The shared one saves ~0.002 SOL/banknote, but the isolated one is trivial to reason about and audit. With 29 days, simplicity wins |
+| Device key | Signing with MWA offline | Removes the biggest technical risk in the project |
+| Fee payer = device key | Fee payer = recipient | Having the recipient pay avoids prefunding SOL, but forces them to be the sender. With our approach either party can settle. Noted as a v2 optimization |
+| Fixed denominations | Free-form amounts | Simplifies the program, bounds the risk, and reinforces the cash metaphor |
+| Legacy `Transaction` | `VersionedTransaction` | Simpler serialization and parsing; we don't need ALTs |
 
-## 7. Coste real de renta por billete
+## 7. Real rent cost per banknote
 
-| Cuenta | Bytes | ~SOL |
+| Account | Bytes | ~SOL |
 |---|---|---|
 | Nonce account | 80 | 0.00144 |
 | Slot PDA | 156 | 0.00189 |
 | Vault (token account) | 165 | 0.00204 |
-| **Total por billete** | | **~0.0054 SOL** |
+| **Total per banknote** | | **~0.0054 SOL** |
 
-20 billetes ≈ **0.11 SOL**. Es recuperable vía `redeem` o `reclaim`, pero hay que
-enseñárselo al usuario antes de cargar — de ahí `estimateNoteRentLamports()`.
+20 banknotes ≈ **0.11 SOL**. It's recoverable via `redeem` or `reclaim`, but you have to
+show it to the user before they load up — hence `estimateNoteRentLamports()`.
 
-Optimización obvia para v2: vault compartido, que se lleva por delante el 38% del coste.
+Obvious v2 optimization: a shared vault, which wipes out 38% of the cost.

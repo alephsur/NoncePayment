@@ -1,91 +1,90 @@
 # NoncePayment
 
-**Efectivo digital offline sobre Solana.** Paga en USDC con el móvil en modo avión.
+**Offline digital cash on Solana.** Pay in USDC from your phone in airplane mode.
 
-> Entrega para **CLOCK IN** — Solana Mobile × RadiantsDAO. Cierre: 8 de octubre de 2026.
-
----
-
-## El pitch
-
-Cargas "billetes" de USDC en el móvil mientras tienes internet, como sacar dinero de un
-cajero. Después pagas a otro móvil **sin cobertura ninguno de los dos**: se acercan, se
-tocan, el dinero cambia de manos. Cuando cualquiera de los dos vuelve a tener red, la
-transacción se liquida en Solana automáticamente.
-
-Funciona porque un **durable nonce** de Solana hace que una transacción firmada **no
-caduque nunca**, y porque avanzar ese nonce **invalida cualquier otra transacción
-firmada contra él** — así que el propio runtime de Solana garantiza que cada billete se
-gasta como máximo una vez.
+> Submission for **CLOCK IN** — Solana Mobile × RadiantsDAO. Deadline: October 8, 2026.
 
 ---
 
-## Estado
+## The pitch
 
-| Componente | Estado |
+You load USDC "banknotes" onto your phone while you have internet, the same way you
+withdraw cash from an ATM. Later you pay another phone **while neither device has
+coverage**: they come close, they tap, the money changes hands. As soon as either side
+gets back online, the transaction settles on Solana automatically.
+
+It works because a Solana **durable nonce** makes a signed transaction **never expire**,
+and because advancing that nonce **invalidates any other transaction signed against it**
+— so the Solana runtime itself guarantees that every banknote is spent at most once.
+
+---
+
+## Status
+
+| Component | Status |
 |---|---|
-| Programa Anchor (`open_slot` / `redeem` / `reclaim`) | ✅ escrito, pendiente de desplegar |
-| SDK: construcción y verificación de vouchers | ✅ **9/9 tests pasan** |
-| Polyfills de RN + entrada de la app | ✅ escrito |
-| Config plugin de NFC HCE | ✅ escrito, pendiente de spike |
-| Transporte QR | ✅ estructura lista |
-| Transporte BLE | 🚧 pendiente del spike (día 3) |
-| Transporte NFC | 🚧 pendiente del spike (día 4) — con regla de corte |
-| Pantallas Pagar / Cobrar | ✅ estructura lista |
-| Cola de liquidación en background | ✅ escrito |
-| Dominios `.skr` (bonus SKR) | ⬜ día 18 |
+| Anchor program (`open_slot` / `redeem` / `reclaim`) | ✅ written, not yet deployed |
+| SDK: voucher construction and verification | ✅ **9/9 tests passing** |
+| RN polyfills + app entry point | ✅ written |
+| NFC HCE config plugin | ✅ written, spike pending |
+| QR transport | ✅ scaffolding ready |
+| BLE transport | 🚧 blocked on the spike (day 3) |
+| NFC transport | 🚧 blocked on the spike (day 4) — has a kill rule |
+| Pay / Receive screens | ✅ scaffolding ready |
+| Background settlement queue | ✅ written |
+| `.skr` domains (SKR bonus) | ⬜ day 18 |
 
 ---
 
-## Estructura
+## Layout
 
 ```
 NoncePayment/
 ├── docs/
-│   ├── REFERENCE.md      ← reglas del hackathon, estrategia, checklist de entrega
-│   ├── ARCHITECTURE.md   ← diseño técnico: nonces, slots, clave de dispositivo
-│   ├── ROADMAP.md        ← plan día a día de los 29 días
-│   └── THREAT-MODEL.md   ← material para el slide que te separa del resto
-├── program/              ← programa Anchor
-├── packages/sdk/         ← lógica compartida: vouchers, nonces, slots (+ tests)
-├── app/                  ← app Expo / React Native
-└── spikes/               ← código desechable de los días 1-4
+│   ├── REFERENCE.md      ← hackathon rules, strategy, submission checklist
+│   ├── ARCHITECTURE.md   ← technical design: nonces, slots, device key
+│   ├── ROADMAP.md        ← day-by-day plan for the 29 days
+│   └── THREAT-MODEL.md   ← material for the slide that sets you apart
+├── program/              ← Anchor program
+├── packages/sdk/         ← shared logic: vouchers, nonces, slots (+ tests)
+├── app/                  ← Expo / React Native app
+└── spikes/               ← throwaway code from days 1-4
 ```
 
-**Empieza por `docs/ROADMAP.md`.**
+**Start with `docs/ROADMAP.md`.**
 
 ---
 
-## Arranque rápido
+## Quick start
 
 ```bash
-# 1. SDK — el núcleo. Los tests corren sin red ni cadena.
+# 1. SDK — the core. Tests run with no network and no chain.
 cd packages/sdk && npm install && npx tsx test/voucher.test.ts
 
-# 2. Spike del durable nonce (necesita SOL de devnet)
+# 2. Durable nonce spike (needs devnet SOL)
 cd ../../spikes && npm install
 solana airdrop 2 --url devnet
 npx tsx 01-durable-nonce.ts create
-#  ... espera >10 minutos ...
+#  ... wait >10 minutes ...
 npx tsx 01-durable-nonce.ts send
 
-# 3. Programa
+# 3. Program
 cd ../program && anchor keys sync && anchor build && anchor test
 
-# 4. App (development build obligatoria — Expo Go NO sirve)
+# 4. App (a development build is mandatory — Expo Go will NOT work)
 cd ../app && npm install && npx expo prebuild -p android && npm run build:dev
 ```
 
 ---
 
-## Los tres riesgos
+## The three risks
 
-1. **Polyfills de Solana en RN** — resolver el día 1. Come dos días si te pilla el día 20.
-2. **NFC HCE** — regla dura: si el día 4 no funciona, se entierra y se sigue con BLE + QR.
-3. **Quedarse sin tiempo para el vídeo** — los últimos 4 días son intocables.
+1. **Solana polyfills on RN** — settle it on day 1. It eats two days if it catches you on day 20.
+2. **NFC HCE** — hard rule: if it doesn't work by day 4, it gets buried and we ship BLE + QR.
+3. **Running out of time for the video** — the last 4 days are untouchable.
 
 ---
 
-## Licencia
+## License
 
 MIT

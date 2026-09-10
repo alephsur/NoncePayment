@@ -1,151 +1,150 @@
-# Roadmap — 29 días
+# Roadmap — 29 days
 
-> Inicio: **9 de septiembre de 2026** · Entrega objetivo: **6 de octubre** ·
-> Cierre oficial: **8 de octubre**
-> Un desarrollador. React Native / Expo. Los dos días de colchón no son negociables.
-
----
-
-## Principios que gobiernan todo el plan
-
-1. **Commitea todos los días.** Un 25% de la nota es literalmente el historial de
-   commits. Un repo con un único commit el día 7 de octubre te descalifica de facto.
-2. **Lo arriesgado primero.** Las incógnitas técnicas se resuelven en los días 1–4,
-   cuando todavía hay tiempo de cambiar de plan.
-3. **Los últimos 4 días son sagrados.** Vídeo y deck. Otro 25% cuelga de ahí.
-4. **Cada fase termina con algo que funciona.** Nunca un "casi".
+> Start: **September 9, 2026** · Target submission: **October 6** ·
+> Official deadline: **October 8**
+> One developer. React Native / Expo. The two buffer days are non-negotiable.
 
 ---
 
-## Fase 0 · Días 1–4 · SPIKE
+## Principles that govern the whole plan
 
-**La fase más importante del proyecto.** Código desechable, cero UI, cero
-arquitectura bonita. Solo respuestas a preguntas que pueden cambiar el plan entero.
-
-### Día 1 — Polyfills y toolchain
-- [ ] `expo prebuild` + development build en un Android real vía EAS
-- [ ] **Riesgo #1:** `Buffer`, `crypto.getRandomValues`, `structuredClone` funcionando
-      — generar un `Keypair` dentro de la app y verlo en pantalla
-- [ ] Anchor + Solana CLI instalados, `solana-test-validator` levantando
-
-> Si `Keypair.generate()` no funciona dentro de la app al terminar el día 1, **no
-> sigas con nada más**. Es el cimiento.
-
-### Día 2 — Durable nonce de punta a punta
-- [ ] `spikes/01-durable-nonce.ts` en devnet: crear nonce, firmar una tx, esperar
-      **más de 10 minutos**, enviarla y que confirme
-- [ ] Confirmar que una segunda tx firmada contra el mismo nonce **falla**
-      (esto ES la garantía anti-doble-gasto; hay que verla fallar con tus ojos)
-
-### Día 3 — BLE entre dos móviles
-- [ ] Mover 800 bytes de un Android a otro
-- [ ] **Decisión clave:** ¿quién anuncia? `react-native-ble-plx` solo hace de central.
-      Probablemente haya que invertir papeles (el receptor anuncia, el pagador escribe).
-      Decidir HOY, no en la semana 3.
-
-### Día 4 — NFC HCE, y la regla de corte
-- [ ] Config plugin → `HostApduService` en el manifest
-- [ ] Un móvil emula tarjeta, el otro lee 32 bytes
-
-> ### 🚨 REGLA DURA
-> **Si al acabar el día 4 el NFC no mueve 32 bytes entre dos móviles reales, se
-> entierra.** Se borra `transport/nfc.ts`, se quita del selector y se sigue con
-> BLE + QR. Sin "un día más". La arquitectura de transportes ya está preparada para
-> perder una capa sin que se caiga nada.
-
-**Salida de fase:** un documento de una página con qué funciona y qué no. El plan de
-las fases 1–4 se ajusta a esa realidad, no al revés.
+1. **Commit every day.** 25% of the score is literally the commit history. A repo with a
+   single commit on October 7 disqualifies you in practice.
+2. **Risky things first.** The technical unknowns get resolved on days 1–4, while there's
+   still time to change the plan.
+3. **The last 4 days are sacred.** Video and deck. Another 25% hangs on them.
+4. **Every phase ends with something that works.** Never an "almost".
 
 ---
 
-## Fase 1 · Días 5–9 · Programa Anchor
+## Phase 0 · Days 1–4 · SPIKE
 
-- [ ] Día 5 — `anchor keys sync`, deploy a localnet, `open_slot` con test
-- [ ] Día 6 — `redeem` con test del camino feliz
-- [ ] Día 7 — `reclaim` + tests de casos límite (importe cero, importe excesivo,
-      firmante no autorizado, mint incorrecto, owner incorrecto)
-- [ ] Día 8 — **Test de integración con nonce**: firmar `redeem` offline, esperar,
-      enviar. Y el test que más importa: **el doble gasto tiene que fallar**
-- [ ] Día 9 — Deploy a devnet, dirección pública en el README
+**The most important phase of the project.** Throwaway code, zero UI, zero pretty
+architecture. Only answers to questions that could change the entire plan.
 
-**Salida de fase:** programa en devnet, suite verde, doble gasto demostrado imposible.
+### Day 1 — Polyfills and toolchain
+- [ ] `expo prebuild` + development build on a real Android device via EAS
+- [ ] **Risk #1:** `Buffer`, `crypto.getRandomValues`, `structuredClone` working
+      — generate a `Keypair` inside the app and see it on screen
+- [ ] Anchor + Solana CLI installed, `solana-test-validator` coming up
 
----
+> If `Keypair.generate()` doesn't work inside the app by the end of day 1, **do not move
+> on to anything else**. It's the foundation.
 
-## Fase 2 · Días 10–16 · App de punta a punta
+### Day 2 — Durable nonce end to end
+- [ ] `spikes/01-durable-nonce.ts` on devnet: create the nonce, sign a tx, wait
+      **more than 10 minutes**, send it, and have it confirm
+- [ ] Confirm that a second tx signed against the same nonce **fails**
+      (this IS the anti-double-spend guarantee; you have to watch it fail yourself)
 
-Feo pero funcionando. Nada de pulir aquí.
+### Day 3 — BLE between two phones
+- [ ] Move 800 bytes from one Android device to another
+- [ ] **Key decision:** who advertises? `react-native-ble-plx` only acts as central.
+      The roles probably have to be inverted (the recipient advertises, the payer writes).
+      Decide TODAY, not in week 3.
 
-- [ ] Día 10 — MWA connect/reauthorize, saldo real en pantalla
-- [ ] Día 11 — Clave de dispositivo: generar, guardar, barrera biométrica
-- [ ] Día 12 — **Cargar billetes**: crear nonces + `open_slot` vía MWA, cachear
-- [ ] Día 13 — **Pagar**: `buildVoucher()` offline + transmisión por QR
-- [ ] Día 14 — **Cobrar**: `verifyVoucher()` offline + niveles de verificación
-- [ ] Día 15 — Cola de liquidación + tarea en background
-- [ ] Día 16 — Transporte ganador del spike (BLE, y NFC si sobrevivió)
+### Day 4 — NFC HCE, and the kill rule
+- [ ] Config plugin → `HostApduService` in the manifest
+- [ ] One phone emulates a card, the other reads 32 bytes
 
-**Salida de fase:** el circuito completo funciona en modo avión. **Graba un vídeo
-casero ese mismo día** — es tu red de seguridad si algo se rompe después.
+> ### 🚨 HARD RULE
+> **If by the end of day 4 NFC isn't moving 32 bytes between two real phones, it gets
+> buried.** Delete `transport/nfc.ts`, drop it from the selector, and continue with
+> BLE + QR. No "just one more day". The transport architecture is already built to lose
+> a layer without anything falling over.
 
----
-
-## Fase 3 · Días 17–21 · Donde se gana el 25% de Mobile UX
-
-- [ ] Día 17 — Diseño visual: los billetes tienen que *parecer* billetes
-- [ ] Día 18 — **Dominios `.skr`** ← bonus SKR de $10.000
-- [ ] Día 19 — Detección de Seeker, guiño a Seed Vault, animación del tap, háptica
-- [ ] Día 20 — Estados de error: sin billetes, importe insuficiente, biometría
-      cancelada, transporte caído, voucher inválido
-- [ ] Día 21 — Historial + enlaces a Solscan + onboarding de primer uso
-
----
-
-## Fase 4 · Días 22–25 · Pruebas reales
-
-- [ ] Día 22 — Dos móviles, modo avión, en la calle. Anotar todo lo que falla
-- [ ] Día 23 — Arreglar lo que salió
-- [ ] Día 24 — Casos límite: batería baja, app matada, red intermitente, sesión MWA
-      caducada, reinstalación con billetes vivos
-- [ ] Día 25 — **Congelación de funcionalidad.** A partir de aquí solo bugs críticos
+**Phase output:** a one-page document stating what works and what doesn't. The plan for
+phases 1–4 adapts to that reality, not the other way around.
 
 ---
 
-## Fase 5 · Días 26–29 · Entregables
+## Phase 1 · Days 5–9 · Anchor program
 
-- [ ] Día 26 — **Vídeo demo.** La toma del modo avión es el argumento entero.
-      60–120s. Guion en `docs/DEMO-SCRIPT.md`
-- [ ] Día 27 — **Pitch deck.** 10–12 slides. El slide del threat model es el que te
-      separa del resto: enseña que entiendes tu propio sistema
-- [ ] Día 28 — README, limpieza del repo, APK release firmado y probado desde cero
-      en un móvil limpio
-- [ ] Día 29 (**6 de octubre**) — **ENTREGAR**
+- [ ] Day 5 — `anchor keys sync`, deploy to localnet, `open_slot` with a test
+- [ ] Day 6 — `redeem` with a happy-path test
+- [ ] Day 7 — `reclaim` + edge-case tests (zero amount, excessive amount,
+      unauthorized signer, wrong mint, wrong owner)
+- [ ] Day 8 — **Integration test with the nonce**: sign `redeem` offline, wait,
+      send. And the test that matters most: **the double spend has to fail**
+- [ ] Day 9 — Deploy to devnet, public address in the README
+
+**Phase output:** program on devnet, green suite, double spend proven impossible.
 
 ---
 
-## Mapa de fases a criterios de evaluación
+## Phase 2 · Days 10–16 · End-to-end app
 
-| Criterio | 25% | Dónde se gana |
+Ugly but working. No polish here.
+
+- [ ] Day 10 — MWA connect/reauthorize, real balance on screen
+- [ ] Day 11 — Device key: generate, store, biometric gate
+- [ ] Day 12 — **Load banknotes**: create nonces + `open_slot` via MWA, cache them
+- [ ] Day 13 — **Pay**: `buildVoucher()` offline + transmission over QR
+- [ ] Day 14 — **Receive**: `verifyVoucher()` offline + verification levels
+- [ ] Day 15 — Settlement queue + background task
+- [ ] Day 16 — The transport that won the spike (BLE, and NFC if it survived)
+
+**Phase output:** the full loop works in airplane mode. **Record a rough video that same
+day** — it's your safety net if something breaks later.
+
+---
+
+## Phase 3 · Days 17–21 · Where the 25% of Mobile UX is won
+
+- [ ] Day 17 — Visual design: the banknotes have to *look* like banknotes
+- [ ] Day 18 — **`.skr` domains** ← the $10,000 SKR bonus
+- [ ] Day 19 — Seeker detection, a nod to Seed Vault, tap animation, haptics
+- [ ] Day 20 — Error states: no banknotes, insufficient amount, biometrics cancelled,
+      transport down, invalid voucher
+- [ ] Day 21 — History + Solscan links + first-run onboarding
+
+---
+
+## Phase 4 · Days 22–25 · Real-world testing
+
+- [ ] Day 22 — Two phones, airplane mode, out on the street. Write down everything that breaks
+- [ ] Day 23 — Fix what came up
+- [ ] Day 24 — Edge cases: low battery, app killed, flaky network, expired MWA session,
+      reinstall with live banknotes
+- [ ] Day 25 — **Feature freeze.** From here on, critical bugs only
+
+---
+
+## Phase 5 · Days 26–29 · Deliverables
+
+- [ ] Day 26 — **Demo video.** The airplane-mode shot is the entire argument.
+      60–120s. Script in `docs/DEMO-SCRIPT.md`
+- [ ] Day 27 — **Pitch deck.** 10–12 slides. The threat-model slide is the one that sets
+      you apart: it shows you understand your own system
+- [ ] Day 28 — README, repo cleanup, signed release APK tested from scratch on a clean phone
+- [ ] Day 29 (**October 6**) — **SUBMIT**
+
+---
+
+## Mapping phases to judging criteria
+
+| Criterion | 25% | Where it's won |
 |---|---|---|
-| Completion | ✅ | Fases 2 y 5. Que funcione + el vídeo |
-| Technical depth | ✅ | Fase 1 + commits diarios de todo el mes |
-| Mobile UX | ✅ | Fase 3 + el transporte que sobreviva al spike |
-| Solana integration | ✅ | Fase 1. Programa propio, nonces, SPL |
-| Bonus SKR | 🎁 | Día 18 |
+| Completion | ✅ | Phases 2 and 5. It working + the video |
+| Technical depth | ✅ | Phase 1 + daily commits all month |
+| Mobile UX | ✅ | Phase 3 + whichever transport survives the spike |
+| Solana integration | ✅ | Phase 1. Custom program, nonces, SPL |
+| SKR bonus | 🎁 | Day 18 |
 
 ---
 
-## Preguntas abiertas para decidir en el spike
+## Open questions to settle during the spike
 
-1. **¿Quién anuncia por BLE?** Probablemente el receptor. Confirmar el día 3.
-2. **¿Sobrevive el NFC?** Se decide el día 4, con la regla dura.
-3. **¿Devnet o mainnet para el vídeo?** Devnet es más seguro. Mainnet con importes
-   diminutos es más impresionante. Decidir el día 25, no antes.
-4. **¿Denominaciones fijas o importe libre al cargar?** El programa soporta ambas
-   (`redeem` admite importe parcial con cambio). Las fijas venden mejor.
+1. **Who advertises over BLE?** Probably the recipient. Confirm on day 3.
+2. **Does NFC survive?** Decided on day 4, under the hard rule.
+3. **Devnet or mainnet for the video?** Devnet is safer. Mainnet with tiny amounts is more
+   impressive. Decide on day 25, not before.
+4. **Fixed denominations or free-form amounts when loading?** The program supports both
+   (`redeem` accepts a partial amount with change). Fixed ones sell better.
 
 ---
 
-## Lo que NO entra — decidido y cerrado
+## What's NOT in scope — decided and closed
 
-❌ Importes parciales con cambio complejo · ❌ Multi-token · ❌ Modo comerciante/TPV
-❌ iOS · ❌ Backend propio · ❌ Onboarding sin wallet · ❌ Recuperación social
+❌ Partial amounts with complex change · ❌ Multi-token · ❌ Merchant/POS mode
+❌ iOS · ❌ Our own backend · ❌ Walletless onboarding · ❌ Social recovery

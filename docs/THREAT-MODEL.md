@@ -1,72 +1,72 @@
 # Threat model
 
-> Este documento es material de pitch deck, no solo de ingeniería. El slide que sale de
-> aquí es probablemente el que más te separa del resto de entregas: demuestra que
-> entiendes tu propio sistema en vez de fingir que no tiene bordes.
+> This document is pitch-deck material, not just engineering. The slide that comes out of
+> it is probably the one that sets you furthest apart from other submissions: it shows you
+> understand your own system instead of pretending it has no edges.
 
-## 1. Lo que el protocolo garantiza
+## 1. What the protocol guarantees
 
-| Garantía | Cómo |
+| Guarantee | How |
 |---|---|
-| **Los vouchers no se pueden falsificar** | Firma ed25519 verificada offline contra el mensaje exacto |
-| **Un billete se gasta como máximo una vez** | Nonce de uso único, impuesto por el runtime de Solana |
-| **Todo voucher está totalmente colateralizado** | Los fondos están bloqueados en un vault PDA antes de firmar nada |
-| **La clave de dispositivo no puede vaciarte** | Solo puede gastar slots ya financiados, nunca el saldo completo |
-| **Los vouchers no se pueden redirigir** | El destinatario está dentro del mensaje firmado |
-| **Los metadatos no pueden mentir** | La verificación los contrasta con la transacción y rechaza si no cuadran |
+| **Vouchers cannot be forged** | ed25519 signature verified offline against the exact message |
+| **A banknote is spent at most once** | Single-use nonce, enforced by the Solana runtime |
+| **Every voucher is fully collateralized** | Funds are locked in a vault PDA before anything is signed |
+| **The device key cannot drain you** | It can only spend already-funded slots, never the full balance |
+| **Vouchers cannot be redirected** | The recipient is inside the signed message |
+| **Metadata cannot lie** | Verification cross-checks it against the transaction and rejects mismatches |
 
-## 2. El riesgo residual
+## 2. The residual risk
 
-**Ataque:** el pagador firma dos vouchers contra el mismo slot y se los entrega a dos
-receptores distintos, ambos offline. Solo uno se liquidará. El otro se queda sin nada.
+**Attack:** the payer signs two vouchers against the same slot and hands them to two
+different recipients, both offline. Only one will settle. The other gets nothing.
 
-**Esto no se puede eliminar.** No es un fallo de implementación: es una imposibilidad
-matemática. Sin un punto común de consenso, dos partes aisladas no pueden saber que se
-les ha prometido lo mismo. Cualquier sistema de pago offline tiene esta propiedad,
-incluidos los monederos de dinero electrónico con hardware seguro.
+**This cannot be eliminated.** It is not an implementation flaw: it is a mathematical
+impossibility. Without a shared point of consensus, two isolated parties cannot know they
+have been promised the same thing. Every offline payment system has this property,
+including electronic-cash wallets built on secure hardware.
 
-Lo que sí se puede hacer es **acotarlo, atribuirlo y cerrarlo rápido**:
+What you *can* do is **bound it, attribute it, and close it fast**:
 
-| Mitigación | Efecto |
+| Mitigation | Effect |
 |---|---|
-| **Denominaciones fijas** | La pérdida máxima es un billete, no tu saldo |
-| **Identidad `.skr`** | El pagador es una persona identificable, no una dirección anónima |
-| **Reputación on-chain** | El historial de liquidaciones es público y consultable |
-| **Liquidación automática** | La ventana se cierra sola al primer instante de red |
-| **Nivel de verificación visible** | El receptor sabe exactamente qué se ha comprobado |
+| **Fixed denominations** | Maximum loss is one banknote, not your balance |
+| **`.skr` identity** | The payer is an identifiable person, not an anonymous address |
+| **On-chain reputation** | The settlement history is public and queryable |
+| **Automatic settlement** | The window closes by itself at the first moment of connectivity |
+| **Visible verification level** | The recipient knows exactly what has been checked |
 
-## 3. La ventana de riesgo
+## 3. The risk window
 
-El riesgo existe solo entre firmar y liquidar. La app lo minimiza de forma agresiva:
+The risk exists only between signing and settling. The app minimizes it aggressively:
 
-- Liquidación en background en cuanto vuelve la conectividad
-- Liquidación inmediata al recibir si el receptor tiene red
-- Cualquiera de las dos partes puede liquidar — no hace falta que sea el receptor
-- El historial marca visualmente lo pendiente
+- Background settlement as soon as connectivity returns
+- Immediate settlement on receipt if the recipient has network
+- Either party can settle — it doesn't have to be the recipient
+- History visually marks what's still pending
 
-En la práctica: segundos o minutos en ciudad, horas en el peor caso realista.
+In practice: seconds or minutes in a city, hours in the realistic worst case.
 
-## 4. Otros vectores
+## 4. Other vectors
 
-| Vector | Estado |
+| Vector | Status |
 |---|---|
-| Móvil robado desbloqueado | Acotado a los billetes cargados. Biometría en cada pago |
-| Replay del mismo voucher | Imposible: el nonce ya se avanzó y el slot está cerrado |
-| Receptor manipula el voucher | Rompe la firma → rechazado |
-| MITM en BLE | El voucher está firmado y dirigido; interceptarlo no sirve de nada |
-| Clave de dispositivo extraída | Solo gasta slots ya financiados. Mitigación v2: rotación + `reclaim` |
-| Censura del RPC | Cualquiera de las dos partes puede enviar, desde cualquier RPC |
+| Stolen unlocked phone | Bounded to the loaded banknotes. Biometrics on every payment |
+| Replay of the same voucher | Impossible: the nonce has already advanced and the slot is closed |
+| Recipient tampers with the voucher | Breaks the signature → rejected |
+| MITM over BLE | The voucher is signed and addressed; intercepting it achieves nothing |
+| Device key extracted | Only spends already-funded slots. v2 mitigation: rotation + `reclaim` |
+| RPC censorship | Either party can submit, from any RPC |
 
-## 5. Cómo contarlo en el pitch
+## 5. How to tell it in the pitch
 
-Un slide. Tres bloques:
+One slide. Three blocks:
 
-1. **Lo que garantizamos** — la tabla de §1
-2. **Lo que no** — el doble gasto offline, y por qué es imposible para *cualquiera*
-3. **Cómo lo acotamos** — la tabla de mitigaciones de §2
+1. **What we guarantee** — the table in §1
+2. **What we don't** — offline double spend, and why it's impossible for *anyone*
+3. **How we bound it** — the mitigations table in §2
 
-Cierre sugerido:
+Suggested closer:
 
-> *"No hemos resuelto el doble gasto offline. Nadie puede. Lo hemos convertido en un
-> riesgo acotado, atribuible y de vida corta — que es exactamente lo que el efectivo
-> físico lleva haciendo cinco siglos."*
+> *"We haven't solved offline double spending. Nobody can. We've turned it into a bounded,
+> attributable, short-lived risk — which is exactly what physical cash has been doing for
+> five centuries."*
