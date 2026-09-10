@@ -23,10 +23,10 @@ and because advancing that nonce **invalidates any other transaction signed agai
 
 | Component | Status |
 |---|---|
-| **Durable nonce spike** | ✅ **proven** — see [`docs/SPIKE-RESULTS.md`](docs/SPIKE-RESULTS.md) |
+| **Durable nonce spike** | ✅ **proven on devnet** — [11.2 min old tx, confirmed](https://solscan.io/tx/5kP24xBBwzUkC6zcYNkpy3q7yzSbL9LLJHZX1AEL64PtwDqi6A1NpNJsceinQtq6qSbrDJXYPFjgYf5yKxoXKGyD?cluster=devnet) |
 | Toolchain (Solana CLI, Anchor, test validator) | ✅ installed and running |
 | Anchor program (`open_slot` / `redeem` / `reclaim`) | ✅ builds; deployed to localnet, not yet to devnet |
-| Program tests — `open_slot` | ✅ **5/5 passing** |
+| Program tests — `open_slot` + `redeem` | ✅ **9/9 passing** |
 | SDK: voucher construction and verification | ✅ **9/9 tests passing** |
 | RN polyfills + app entry point | 🚧 written, spike pending on a real device |
 | NFC HCE config plugin | ✅ written, spike pending |

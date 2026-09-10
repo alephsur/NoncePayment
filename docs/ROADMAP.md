@@ -36,8 +36,8 @@ architecture. Only answers to questions that could change the entire plan.
 ### Day 2 — Durable nonce end to end · ✅
 - [x] `spikes/01-durable-nonce.ts`: create the nonce, sign a tx, wait past blockhash
       expiry, send it, and have it confirm
-      — done on localnet, against a control tx that expires. Devnet still pending: the
-      faucet rate-limits us
+      — done on localnet against a control tx that expires, **and on devnet with a real
+      11.2 minute wait**
 - [x] Confirm that a second tx signed against the same nonce **fails**
       (this IS the anti-double-spend guarantee; you have to watch it fail yourself)
       — `Blockhash not found`, watched with our own eyes
@@ -72,7 +72,9 @@ phases 1–4 adapts to that reality, not the other way around.
 - [x] Day 5 — `anchor keys sync`, deploy to localnet, `open_slot` with a test
       — program id `CwwpVy2fL2NoVYS1wZgvhfpumoCCQdmZd8194uKRpDo7`, deployed to localnet,
       **5 tests passing** in `program/tests/open-slot.ts`
-- [ ] Day 6 — `redeem` with a happy-path test
+- [x] Day 6 — `redeem` with a happy-path test
+      — full payment, partial payment with change, rent returned, and a recipient with
+      no USDC account. **9 tests passing** across the suite
 - [ ] Day 7 — `reclaim` + edge-case tests (zero amount, excessive amount,
       unauthorized signer, wrong mint, wrong owner)
 - [ ] Day 8 — **Integration test with the nonce**: sign `redeem` offline, wait,

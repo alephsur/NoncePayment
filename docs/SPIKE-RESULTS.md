@@ -6,7 +6,7 @@
 | # | Question | Day | Status |
 |---|---|---|---|
 | 00 | Do the Solana polyfills work inside the app? | 1 | 🚧 blocked on a device |
-| 01 | Does a durable-nonce tx survive the passage of time? | 2 | ✅ **YES** |
+| 01 | Does a durable-nonce tx survive the passage of time? | 2 | ✅ **YES** — on localnet *and* devnet |
 | 02 | Can 800 bytes move over BLE between two phones? | 3 | ⬜ |
 | 03 | Can 32 bytes move over NFC HCE? | 4 | ⬜ |
 
@@ -58,10 +58,8 @@ keeps the build reproducible.
   development build; it can't be closed from the dev environment. **This is risk #1 of
   the project**: until `Keypair.generate()` prints a key inside the app, phase 2 is
   standing on nothing.
-- **Devnet airdrop.** The faucet rate-limits this IP for
-  `6uJvsVeMhWLgqBxwRVW9pRhZAdFajMacPx2rWXC7pJZK`. It has to be funded by hand from
-  <https://faucet.solana.com> (needs a GitHub account) before spike 01 can be repeated
-  against devnet and, later, before the day-9 deploy.
+- ~~**Devnet airdrop.**~~ Resolved — the account was funded by hand on 2026-09-10, and
+  the devnet run of spike 01 is done (below).
 
 ---
 
@@ -109,10 +107,49 @@ FJf51PR4qN7htvsB8FgvDZ7iUjMvBeux7DMkDnKKwUUy
    the slot closes. Ten preloaded notes is ~0.0145 SOL. Affordable, but it has to be
    shown in the UI at load time (phase 3, day 20: error states).
 
+### The devnet run · ✅ confirmed
+
+Same spike, real network, real waiting. The account was funded by hand
+(the faucet rate-limits this IP), and then:
+
+```bash
+npx tsx 01-durable-nonce.ts create   # nonce 48F3ndNGC5QTBuQvGvugvT2cvEWvewtUdGDpAAH8stiE
+#  ... 11.2 minutes later ...
+npx tsx 01-durable-nonce.ts send     # ✅ confirmed
+npx tsx 01-durable-nonce.ts double   # ❌ Blockhash not found
+```
+
+Transaction: [`5kP24xBB…oXKGyD`](https://solscan.io/tx/5kP24xBBwzUkC6zcYNkpy3q7yzSbL9LLJHZX1AEL64PtwDqi6A1NpNJsceinQtq6qSbrDJXYPFjgYf5yKxoXKGyD?cluster=devnet)
+— signed at one moment, landed on chain **11.2 minutes later**. A normal transaction
+would have expired after about a minute. The double spend against the same nonce was
+rejected right after.
+
+Real cost per banknote on devnet: **0.00105664 SOL** of nonce rent (localnet quotes
+0.00144768 — devnet is the number that counts). Ten preloaded notes is ~0.0106 SOL,
+recoverable when the slot closes.
+
 ### What this spike does NOT prove yet
 
-- It hasn't run against **devnet** with a real >10 minute wait (blocked on the faucet).
-  The spike's `create` / `send` mode exists for precisely that and should be run as soon
-  as there's SOL. The mechanism is identical; only the timescale changes.
 - It hasn't run with the **Anchor program** in the loop, only with System Program SOL
   transfers. That's **day 8**, and it's still the test that matters most.
+
+
+---
+
+## Day 6 — a trap worth writing down: lamports and JavaScript
+
+The `redeem` test that asserts the rent comes back to the owner failed by 48 lamports,
+then by 16, then by a different number each run. It looked like the program was leaking
+lamports. It wasn't.
+
+The owner in the tests was Anchor's provider wallet, which collects airdrops until it
+holds hundreds of millions of SOL. That balance in lamports is ~5·10¹⁷, well past
+JavaScript's `Number.MAX_SAFE_INTEGER` (~9·10¹⁵), so `getBalance()` returns a number
+whose last digits are rounding noise.
+
+The fix is not a looser assertion — it's an owner with a realistic balance. `TestContext`
+now uses a **fresh keypair funded with 10 SOL** as the owner, and the provider wallet
+only pays for scaffolding (mints, ATAs, nonce accounts) so it never appears in a
+measurement. Exact lamport assertions pass.
+
+Any future test that measures SOL has to keep that separation.
