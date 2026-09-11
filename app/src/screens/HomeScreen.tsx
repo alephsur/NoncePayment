@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PublicKey } from '@solana/web3.js';
 
 import { Ledger, availableNotes } from '../store/ledger';
+import { DeviceKeyCard } from '../ui/DeviceKeyCard';
 import { formatUsdc, shortKey } from '../ui/format';
 import { theme, spacing } from '../ui/theme';
 import { PayScreen } from './PayScreen';
@@ -83,6 +84,9 @@ export function HomeScreen(props: Props) {
           </View>
         ))
       )}
+
+      <Text style={styles.section}>Dispositivo</Text>
+      <DeviceKeyCard deviceKey={props.deviceKey} online={props.online} />
 
       {pending.length > 0 && (
         <>

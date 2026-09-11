@@ -170,12 +170,29 @@ cd app
 npx expo run:android
 ```
 
-With **both** an emulator and a phone connected, say which one:
+With **both** an emulator and a phone connected, say which one — and note that
+`--device` wants the *name* from Expo's own picker, not the adb id:
 
 ```bash
-adb devices                              # copy the id
-npx expo run:android --device <id>
+npx expo run:android          # it asks which device when there is more than one
 ```
+
+> **The APK is built for one architecture.** With a phone attached, `expo run:android`
+> builds **only that phone's ABI** — so the resulting APK will **not** run on the
+> x86_64 emulator, and it fails in a way that does not name the cause:
+>
+> ```
+> couldn't find DSO to load: libexpo-modules-core.so
+> TypeError: Cannot read property 'EventEmitter' of undefined
+> "main" has not been registered
+> ```
+>
+> To get one APK that runs on both, build every ABI yourself:
+>
+> ```bash
+> cd android && ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a,x86_64
+> adb -s <device> install -r app/build/outputs/apk/debug/app-debug.apk
+> ```
 
 The app connects to Metro over `adb reverse`, which `expo run:android` sets up. If the
 bundle does not load, do it by hand:
@@ -226,4 +243,6 @@ it needs an Expo account plus `eas init`.
 | `Property 'Buffer' doesn't exist` | the polyfills ran too late | `import './polyfills'` must be the **first** line of `index.js` |
 | `adb: no devices/emulators found` | emulator still booting, or USB debugging off | §1b / §2a |
 | App opens white and then dies | Metro not reachable | `adb reverse tcp:8081 tcp:8081` |
+| `libexpo-modules-core.so` not found, or `EventEmitter of undefined` | APK built for another CPU (phone ABI on the emulator, or vice versa) | rebuild with `-PreactNativeArchitectures=arm64-v8a,x86_64` |
+| App won't start on the phone, no error anywhere | screen locked — the activity can't come to the front | unlock the phone first |
 | Metro serves stale code | cache | `npx expo start --dev-client --clear` |
