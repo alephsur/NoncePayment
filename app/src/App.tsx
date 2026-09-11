@@ -6,12 +6,14 @@ import { ensureDeviceKey } from './store/deviceKey';
 import { readLedger, offlineBalance, Ledger } from './store/ledger';
 import { registerSettlementTask, drainSettlementQueue, isOnline } from './net/settlement';
 import { HomeScreen } from './screens/HomeScreen';
+import { useWallet } from './wallet/useWallet';
 import { theme } from './ui/theme';
 
 export default function App() {
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [deviceKey, setDeviceKey] = useState<PublicKey | null>(null);
   const [online, setOnline] = useState(false);
+  const wallet = useWallet(online);
 
   useEffect(() => {
     (async () => {
@@ -42,6 +44,7 @@ export default function App() {
       <HomeScreen
         ledger={ledger}
         deviceKey={deviceKey}
+        wallet={wallet}
         online={online}
         balance={offlineBalance(ledger)}
         onRefresh={async () => setLedger(await readLedger())}

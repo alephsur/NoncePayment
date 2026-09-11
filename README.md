@@ -55,6 +55,7 @@ where a normal one expires after about a minute.
 | QR transport | ✅ scaffolding ready |
 | BLE transport | 🚧 blocked on the spike (day 3) |
 | NFC transport | 🚧 blocked on the spike (day 4) — has a kill rule |
+| MWA: connect, reauthorize, balance | ✅ **working on a real Seeker** |
 | Pay / Receive screens | ✅ scaffolding ready |
 | Background settlement queue | ✅ written |
 | `.skr` domains (SKR bonus) | ⬜ day 18 |

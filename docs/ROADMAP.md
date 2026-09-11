@@ -98,7 +98,9 @@ impossible — on localnet and on devnet.
 
 Ugly but working. No polish here.
 
-- [ ] Day 10 — MWA connect/reauthorize, real balance on screen
+- [x] Day 10 — MWA connect/reauthorize, real balance on screen
+      — verified on a **real Seeker**: Seed Vault's sheet approves, the card shows the
+      USDC balance, and a force-stop + relaunch reconnects with no dialog
 - [ ] Day 11 — Device key: generate, store, biometric gate
 - [ ] Day 12 — **Load banknotes**: create nonces + `open_slot` via MWA, cache them
 - [ ] Day 13 — **Pay**: `buildVoucher()` offline + transmission over QR
@@ -115,6 +117,8 @@ day** — it's your safety net if something breaks later.
 
 - [ ] Day 17 — Visual design: the banknotes have to *look* like banknotes
 - [ ] Day 18 — **`.skr` domains** ← the $10,000 SKR bonus
+      — head start: MWA already returns the domain as the account label. The test
+      Seeker authorises as `alephsur.skr`, so the display half may be nearly free
 - [ ] Day 19 — Seeker detection, a nod to Seed Vault, tap animation, haptics
 - [ ] Day 20 — Error states: no banknotes, insufficient amount, biometrics cancelled,
       transport down, invalid voucher

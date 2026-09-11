@@ -19,6 +19,20 @@ const config = getDefaultConfig(projectRoot);
 
 config.watchFolders = [sdkRoot];
 
+/*
+ * Mobile Wallet Adapter ships its entry points through the `exports` field, including a
+ * `./encoding` subpath that its own web3.js binding imports. Metro on SDK 52 ignores
+ * `exports` unless this is on, and the failure is a bundling error that blames a file
+ * deep inside node_modules rather than the config:
+ *
+ *   Unable to resolve module @solana-mobile/mobile-wallet-adapter-protocol/encoding
+ *
+ * `react-native` has to lead the condition list, or the package resolves to its browser
+ * build and the native module is never reached.
+ */
+config.resolver.unstable_enablePackageExports = true;
+config.resolver.unstable_conditionNames = ['react-native', 'require', 'default'];
+
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(sdkRoot, 'node_modules'),

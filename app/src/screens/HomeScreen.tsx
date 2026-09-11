@@ -4,8 +4,10 @@ import { PublicKey } from '@solana/web3.js';
 
 import { Ledger, availableNotes } from '../store/ledger';
 import { DeviceKeyCard } from '../ui/DeviceKeyCard';
+import { WalletCard } from '../ui/WalletCard';
 import { formatUsdc, shortKey } from '../ui/format';
 import { theme, spacing } from '../ui/theme';
+import type { WalletState } from '../wallet/useWallet';
 import { PayScreen } from './PayScreen';
 import { ReceiveScreen } from './ReceiveScreen';
 
@@ -14,6 +16,7 @@ type Tab = 'home' | 'pay' | 'receive';
 interface Props {
   ledger: Ledger;
   deviceKey: PublicKey;
+  wallet: WalletState;
   online: boolean;
   balance: bigint;
   onRefresh: () => Promise<void>;
@@ -84,6 +87,9 @@ export function HomeScreen(props: Props) {
           </View>
         ))
       )}
+
+      <Text style={styles.section}>Wallet y recarga</Text>
+      <WalletCard wallet={props.wallet} online={props.online} />
 
       <Text style={styles.section}>Dispositivo</Text>
       <DeviceKeyCard deviceKey={props.deviceKey} online={props.online} />
