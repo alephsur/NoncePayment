@@ -69,6 +69,7 @@ NoncePayment/
 │   ├── REFERENCE.md      ← hackathon rules, strategy, submission checklist
 │   ├── ARCHITECTURE.md   ← technical design: nonces, slots, device key
 │   ├── ROADMAP.md        ← day-by-day plan for the 29 days
+│   ├── RUNNING.md        ← how to run the app: emulator, then phone
 │   └── THREAT-MODEL.md   ← material for the slide that sets you apart
 ├── program/              ← Anchor program
 ├── packages/sdk/         ← shared logic: vouchers, nonces, slots (+ tests)
@@ -100,12 +101,10 @@ npx tsx scripts/devnet-smoke.ts
 # 4. App (a development build is mandatory — Expo Go will NOT work)
 #    npm install builds the SDK first, via its `prepare` script
 cd ../app && npm install && npm run typecheck
-npx expo prebuild -p android
 
-#    Then one of the two. EAS needs an Expo account (`eas init` writes the
-#    projectId into app.json); run:android needs the Android SDK and a plugged-in phone.
-npm run build:dev          # eas build --profile development
-npx expo run:android       # local build
+#    Emulator or phone, one command — builds, installs, starts Metro, launches.
+#    Full walkthrough and troubleshooting in docs/RUNNING.md
+npx expo run:android
 ```
 
 ---
