@@ -4,7 +4,8 @@ import { PublicKey } from '@solana/web3.js';
 import { buildVoucher } from '@noncepayment/sdk';
 
 import { Ledger, selectNote, updateLedger } from '../store/ledger';
-import { unlockDeviceKey } from '../store/deviceKey';
+import { DeviceKeyError } from '../store/deviceKey';
+import type { DeviceKeyState } from '../store/useDeviceKey';
 import { enqueueVoucher } from '../net/settlement';
 import { bestTransport } from '../transport';
 import { formatUsdc, parseUsdc } from '../ui/format';
@@ -12,12 +13,13 @@ import { theme, spacing } from '../ui/theme';
 
 interface Props {
   ledger: Ledger;
+  deviceKey: DeviceKeyState;
   onDone: () => void;
 }
 
 type Phase = 'amount' | 'recipient' | 'signing' | 'transmitting' | 'done';
 
-export function PayScreen({ ledger, onDone }: Props) {
+export function PayScreen({ ledger, deviceKey, onDone }: Props) {
   const [phase, setPhase] = useState<Phase>('amount');
   const [amountText, setAmountText] = useState('');
   const [recipientText, setRecipientText] = useState('');
@@ -36,12 +38,14 @@ export function PayScreen({ ledger, onDone }: Props) {
       const note = selectNote(ledger, amount);
       if (!note) throw new Error('No tienes ningun billete que cubra ese importe');
 
-      // 1. Barrera biometrica. Este es el unico momento en que se toca la clave.
+      // 1. Barrera biometrica. Este es el unico momento en que se toca la clave, y el
+      //    titulo del aviso del sistema dice lo que se esta autorizando: si alguien te
+      //    coge el movil desbloqueado, esto es lo que le para.
       setPhase('signing');
-      const deviceKey = await unlockDeviceKey(`Pagar $${formatUsdc(amount)}`);
+      const signer = await deviceKey.unlock(`Pagar $${formatUsdc(amount)}`);
 
       // 2. Firma OFFLINE. Aqui no hay ni una llamada de red.
-      const envelope = buildVoucher({ slot: note, deviceKey, recipient, amount });
+      const envelope = buildVoucher({ slot: note, deviceKey: signer, recipient, amount });
 
       // 3. Transmision por el mejor canal disponible.
       setPhase('transmitting');
@@ -65,8 +69,8 @@ export function PayScreen({ ledger, onDone }: Props) {
       });
 
       setPhase('done');
-    } catch (e: any) {
-      setError(String(e?.message ?? e));
+    } catch (e) {
+      setError(explain(e));
       setPhase('amount');
     }
   }
@@ -133,6 +137,35 @@ export function PayScreen({ ledger, onDone }: Props) {
       </Pressable>
     </View>
   );
+}
+
+/**
+ * What went wrong, said in terms of what to do about it.
+ *
+ * The device key has failure modes that are not failures — a cancelled fingerprint is a
+ * decision — and one that is genuinely serious: a key Android has destroyed. They read
+ * very differently to somebody standing at a counter, so they are worded very
+ * differently. Anything else keeps its own text.
+ */
+function explain(e: unknown): string {
+  if (e instanceof DeviceKeyError) {
+    switch (e.code) {
+      case 'CANCELLED':
+        return 'Pago cancelado: no se ha confirmado la identidad.';
+      case 'NO_KEY':
+        return 'Este movil todavia no tiene clave de pago. Creala en la pantalla principal.';
+      case 'INVALIDATED':
+      case 'MISMATCH':
+        return 'La clave de pago de este movil ya no sirve. Vuelve atras para generar una nueva.';
+      case 'BIOMETRICS_GONE':
+        return 'Ya no hay biometria configurada en el movil, asi que no se puede firmar.';
+      case 'BUSY':
+        return 'Ya hay una confirmacion abierta. Terminala y vuelve a intentarlo.';
+      default:
+        return e.message;
+    }
+  }
+  return String((e as any)?.message ?? e);
 }
 
 const styles = StyleSheet.create({

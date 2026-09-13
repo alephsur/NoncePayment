@@ -101,7 +101,19 @@ Ugly but working. No polish here.
 - [x] Day 10 — MWA connect/reauthorize, real balance on screen
       — verified on a **real Seeker**: Seed Vault's sheet approves, the card shows the
       USDC balance, and a force-stop + relaunch reconnects with no dialog
-- [ ] Day 11 — Device key: generate, store, biometric gate
+- [x] Day 11 — Device key: generate, store, biometric gate
+      — the secret now lives in an **authenticated Keystore entry**: Android itself
+      refuses to decrypt it without a Class 3 biometric, so the gate is the cipher and
+      not an `if`. The public half sits in a second, unauthenticated entry so the UI
+      renders with no prompt and no network
+      — that split is what catches the trap: when the user enrols a new fingerprint
+      Android destroys the key and `getItemAsync` returns **`null`**, exactly like a key
+      that never existed. A one-slot design would silently generate a new keypair and
+      orphan every loaded banknote. Now it says so, and offers `reclaim` as the way out
+      — `expo-secure-store` added as a config plugin: without it the encrypted entries
+      go into Android Auto Backup while the Keystore keys do not
+      — **pending on the phone:** create the key, watch the prompt, pay with it, then
+      enrol a new fingerprint and confirm the app reports the key as destroyed
 - [ ] Day 12 — **Load banknotes**: create nonces + `open_slot` via MWA, cache them
 - [ ] Day 13 — **Pay**: `buildVoucher()` offline + transmission over QR
 - [ ] Day 14 — **Receive**: `verifyVoucher()` offline + verification levels

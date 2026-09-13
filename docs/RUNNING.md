@@ -223,7 +223,33 @@ before day 10 — **Phantom**, **Solflare**, or Seed Vault on a Seeker — and *
 devnet**, which is what `app.json` (`extra.cluster`) is set to. Without a wallet, connect
 does nothing and it looks like our bug.
 
-### 2e. Release APK, for the day-28 clean-phone test
+### 2e. Biometrics, for the device key
+
+The device key is stored in an authenticated Keystore entry, so the phone needs a
+**Class 3** biometric enrolled (fingerprint on essentially every Android phone; most face
+unlock is Class 2 and will not do). With none enrolled the app still works — it falls
+back to a software gate — but the card shows an orange warning and you are not testing
+what ships.
+
+On an emulator: enrol a fingerprint under *Settings → Security*, and feed it a touch with
+
+```bash
+adb -e emu finger touch 1
+```
+
+Three things to check on the phone, in this order:
+
+1. **Create.** The setup card asks for the fingerprint while writing the key. Cancel it
+   once on purpose: no key should be created, and the card should still be offering to
+   create one.
+2. **Pay.** The prompt title says what is being authorised (`Pagar $5.00`). Cancel it:
+   the payment stops with "no se ha confirmado la identidad", no banknote is spent.
+3. **Invalidate.** Enrol a *new* fingerprint in Android settings, reopen the app and try
+   to pay. Android has destroyed the key, and the app must say so and offer to generate a
+   new one — not silently mint a new keypair. This is the failure that quietly orphans
+   banknotes, so it is the one worth provoking deliberately.
+
+### 2f. Release APK, for the day-28 clean-phone test
 
 The debug APK needs Metro running; a release one is self-contained but has to be signed.
 That's a day-28 task; `eas build --profile preview` is the path of least resistance, and

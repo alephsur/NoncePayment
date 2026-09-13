@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
-import { PublicKey } from '@solana/web3.js';
 
-import { ensureDeviceKey } from './store/deviceKey';
+import { useDeviceKey } from './store/useDeviceKey';
 import { readLedger, offlineBalance, Ledger } from './store/ledger';
 import { registerSettlementTask, drainSettlementQueue, isOnline } from './net/settlement';
 import { HomeScreen } from './screens/HomeScreen';
@@ -11,25 +10,36 @@ import { theme } from './ui/theme';
 
 export default function App() {
   const [ledger, setLedger] = useState<Ledger | null>(null);
-  const [deviceKey, setDeviceKey] = useState<PublicKey | null>(null);
   const [online, setOnline] = useState(false);
+  const deviceKey = useDeviceKey();
   const wallet = useWallet(online);
 
   useEffect(() => {
     (async () => {
-      const kp = await ensureDeviceKey();
-      setDeviceKey(kp.publicKey);
       setLedger(await readLedger());
       setOnline(await isOnline());
-      registerSettlementTask(kp.publicKey);
-      // Un intento en caliente al abrir: si hay red, liquida lo pendiente ya.
-      drainSettlementQueue(kp.publicKey)
-        .then(async () => setLedger(await readLedger()))
-        .catch(() => undefined);
     })();
   }, []);
 
-  if (!ledger || !deviceKey) {
+  /**
+   * Settlement needs to know who we are, and that is the device key.
+   *
+   * So it can only be armed once one exists — on a fresh install that is after the user
+   * has been through the setup card, not at launch. Arming it earlier would register a
+   * background task that can never identify its own vouchers.
+   */
+  useEffect(() => {
+    const self = deviceKey.identity?.publicKey;
+    if (!self) return;
+
+    registerSettlementTask(self);
+    // One warm attempt on open: if there is network, settle what is pending now.
+    drainSettlementQueue(self)
+      .then(async () => setLedger(await readLedger()))
+      .catch(() => undefined);
+  }, [deviceKey.identity]);
+
+  if (!ledger || deviceKey.phase === 'loading') {
     return (
       <SafeAreaView style={styles.center}>
         <StatusBar barStyle="light-content" />

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { PublicKey } from '@solana/web3.js';
 
 import { Ledger, availableNotes } from '../store/ledger';
 import { DeviceKeyCard } from '../ui/DeviceKeyCard';
 import { WalletCard } from '../ui/WalletCard';
 import { formatUsdc, shortKey } from '../ui/format';
 import { theme, spacing } from '../ui/theme';
+import type { DeviceKeyState } from '../store/useDeviceKey';
 import type { WalletState } from '../wallet/useWallet';
 import { PayScreen } from './PayScreen';
 import { ReceiveScreen } from './ReceiveScreen';
@@ -15,7 +15,7 @@ type Tab = 'home' | 'pay' | 'receive';
 
 interface Props {
   ledger: Ledger;
-  deviceKey: PublicKey;
+  deviceKey: DeviceKeyState;
   wallet: WalletState;
   online: boolean;
   balance: bigint;
@@ -25,15 +25,25 @@ interface Props {
 export function HomeScreen(props: Props) {
   const [tab, setTab] = useState<Tab>('home');
 
-  if (tab === 'pay') {
-    return <PayScreen {...props} onDone={() => { setTab('home'); props.onRefresh(); }} />;
+  // Nothing can be paid or charged without a device key: it is the signer of every
+  // voucher and the address a recipient is named against. Until it exists the two
+  // buttons are dead, and the card below says how to bring it to life.
+  const identity = props.deviceKey.phase === 'ready' ? props.deviceKey.identity : null;
+  const back = () => {
+    setTab('home');
+    props.onRefresh();
+  };
+
+  if (tab === 'pay' && identity) {
+    return <PayScreen ledger={props.ledger} deviceKey={props.deviceKey} onDone={back} />;
   }
-  if (tab === 'receive') {
-    return <ReceiveScreen {...props} onDone={() => { setTab('home'); props.onRefresh(); }} />;
+  if (tab === 'receive' && identity) {
+    return <ReceiveScreen deviceKey={identity.publicKey} onDone={back} />;
   }
 
   const notes = availableNotes(props.ledger);
   const pending = props.ledger.pending.filter((p) => !p.settledSignature);
+  const canPay = notes.length > 0 && identity !== null;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -52,20 +62,28 @@ export function HomeScreen(props: Props) {
       <Text style={styles.label}>Efectivo disponible offline</Text>
       <Text style={styles.balance}>${formatUsdc(props.balance)}</Text>
       <Text style={styles.sub}>
-        {notes.length} {notes.length === 1 ? 'billete' : 'billetes'} · dispositivo{' '}
-        {shortKey(props.deviceKey.toBase58())}
+        {notes.length} {notes.length === 1 ? 'billete' : 'billetes'} ·{' '}
+        {identity
+          ? `dispositivo ${shortKey(identity.publicKey.toBase58())}`
+          : 'sin clave de dispositivo'}
       </Text>
 
       <View style={styles.actions}>
         <Pressable
-          style={[styles.button, styles.primary]}
+          style={[styles.button, canPay ? styles.primary : styles.disabled]}
           onPress={() => setTab('pay')}
-          disabled={notes.length === 0}
+          disabled={!canPay}
         >
-          <Text style={styles.primaryText}>Pagar</Text>
+          <Text style={canPay ? styles.primaryText : styles.disabledText}>Pagar</Text>
         </Pressable>
-        <Pressable style={[styles.button, styles.secondary]} onPress={() => setTab('receive')}>
-          <Text style={styles.secondaryText}>Cobrar</Text>
+        <Pressable
+          style={[styles.button, styles.secondary]}
+          onPress={() => setTab('receive')}
+          disabled={!identity}
+        >
+          <Text style={[styles.secondaryText, !identity && styles.disabledText]}>
+            Cobrar
+          </Text>
         </Pressable>
       </View>
 
@@ -92,7 +110,7 @@ export function HomeScreen(props: Props) {
       <WalletCard wallet={props.wallet} online={props.online} />
 
       <Text style={styles.section}>Dispositivo</Text>
-      <DeviceKeyCard deviceKey={props.deviceKey} online={props.online} />
+      <DeviceKeyCard state={props.deviceKey} online={props.online} />
 
       {pending.length > 0 && (
         <>
@@ -125,6 +143,8 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: spacing(1.5), marginVertical: spacing(3) },
   button: { flex: 1, paddingVertical: spacing(2), borderRadius: 14, alignItems: 'center' },
   primary: { backgroundColor: theme.accent },
+  disabled: { backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.border },
+  disabledText: { color: theme.textMuted, fontSize: 16, fontWeight: '600' },
   primaryText: { color: '#04120C', fontSize: 16, fontWeight: '700' },
   secondary: { backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.border },
   secondaryText: { color: theme.text, fontSize: 16, fontWeight: '600' },

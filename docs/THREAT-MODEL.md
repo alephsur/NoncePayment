@@ -50,11 +50,12 @@ In practice: seconds or minutes in a city, hours in the realistic worst case.
 
 | Vector | Status |
 |---|---|
-| Stolen unlocked phone | Bounded to the loaded banknotes. Biometrics on every payment |
+| Stolen unlocked phone | Bounded to the loaded banknotes. Biometrics on every payment, enforced by the Keystore rather than by app code |
 | Replay of the same voucher | Impossible: the nonce has already advanced and the slot is closed |
 | Recipient tampers with the voucher | Breaks the signature → rejected |
 | MITM over BLE | The voucher is signed and addressed; intercepting it achieves nothing |
-| Device key extracted | Only spends already-funded slots. v2 mitigation: rotation + `reclaim` |
+| Device key extracted | The secret is hardware-bound: it is never in plaintext without a live biometric, so extraction means defeating the Keystore, not reading a file. Even then it only spends already-funded slots. v2 mitigation: rotation + `reclaim` |
+| Owner changes their fingerprint | Android destroys the key. Detected, not papered over: the app says the banknotes now need `reclaim` online, instead of silently making a new key and orphaning them |
 | RPC censorship | Either party can submit, from any RPC |
 
 ## 5. How to tell it in the pitch

@@ -27,6 +27,7 @@
     },
     "plugins": [
       "./plugins/withNfcHce",
+      "expo-secure-store",
       [
         "expo-camera",
         {

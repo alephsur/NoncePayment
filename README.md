@@ -56,6 +56,7 @@ where a normal one expires after about a minute.
 | BLE transport | 🚧 blocked on the spike (day 3) |
 | NFC transport | 🚧 blocked on the spike (day 4) — has a kill rule |
 | MWA: connect, reauthorize, balance | ✅ **working on a real Seeker** |
+| Device key: generate, store, biometric gate | ✅ written — Keystore-bound, not yet exercised on hardware |
 | Pay / Receive screens | ✅ scaffolding ready |
 | Background settlement queue | ✅ written |
 | `.skr` domains (SKR bonus) | ⬜ day 18 |

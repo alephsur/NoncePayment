@@ -65,6 +65,27 @@ Three wins at once:
 
 And MWA is still genuinely integrated (a hackathon requirement): it's what custodies the money.
 
+#### How it is stored, and the trap that shapes it
+
+The secret goes into an **authenticated Keystore entry** (`requireAuthentication: true`).
+Android will not release the plaintext until a Class 3 biometric has been presented *for
+that decryption* — the gate is the cipher, not a branch in our code. On a phone with no
+strong sensor we fall back to an encrypted-at-rest entry gated by us, and the UI says so
+in orange, because "your fingerprint protects this" and "the lock screen protects this"
+are not the same promise.
+
+The public half plus a little metadata goes into a **second, unauthenticated entry**.
+That is what the UI reads: no prompt, no network, works in airplane mode.
+
+The split is not tidiness. When the user enrols a new fingerprint, Android permanently
+invalidates every biometric-bound key, and `getItemAsync` then returns **`null`** — the
+same answer it gives for a key that was never created. With one slot the two are
+indistinguishable, so the app would quietly generate a fresh keypair and orphan every
+loaded banknote: the on-chain slots still name the old signer, and the money would sit
+there, fully collateralized and unspendable, until somebody thought to `reclaim` it.
+With the identity record present and the secret gone, the difference is obvious, and the
+app can say the true thing instead of losing the user's money politely.
+
 ## 3. Anatomy of a voucher
 
 ```
