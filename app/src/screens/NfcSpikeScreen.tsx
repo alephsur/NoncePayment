@@ -10,17 +10,31 @@
  * How to compare: both sides show the payload's fingerprint (truncated SHA-256). If they
  * match, the bytes arrived intact. The reader also counts how many reads in the series
  * were identical to each other, so nobody has to check the fingerprint on every tap.
+ *
+ * The "Voucher" payload is a real one, built and signed offline by the SDK against a
+ * made-up banknote (~1 KB). The reader runs verifyVoucher() on what arrives, so a pass
+ * means a payable voucher survived the tap, not just a blob of the same size.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { Keypair } from '@solana/web3.js';
+import { Keypair, PublicKey } from '@solana/web3.js';
+import { buildVoucher, verifyVoucher, USDC_MINT_DEVNET } from '@noncepayment/sdk';
 
 import { NfcTransport, encodeHandshake } from '../transport/nfc';
 import { NONCEPAY_SERVICE_UUID } from '../transport/ble';
 import { theme, spacing } from '../ui/theme';
 
-type Mode = 'raw32' | 'handshake';
+type Mode = 'raw32' | 'handshake' | 'voucher';
+
+const MODE_LABEL: Record<Mode, string> = {
+  raw32: '32 B',
+  handshake: 'Handshake',
+  voucher: 'Voucher ~1 KB',
+};
+
+/** Only for this spike: room for a whole voucher, well past the handshake budget. */
+const SPIKE_MAX_PAYLOAD = 4096;
 type Role = 'idle' | 'emitting' | 'reading';
 
 interface Props {
@@ -41,6 +55,29 @@ async function fingerprint(bytes: Uint8Array): Promise<string> {
 
 function makePayload(mode: Mode): Uint8Array {
   if (mode === 'raw32') return Crypto.getRandomBytes(32);
+  if (mode === 'voucher') {
+    // A real voucher at its real size. The banknote is made up, so it could never be
+    // cashed, but the transaction is built and signed exactly as PayScreen will do it.
+    const deviceKey = Keypair.generate();
+    const envelope = buildVoucher({
+      slot: {
+        index: 0,
+        owner: Keypair.generate().publicKey.toBase58(),
+        authorizedSigner: deviceKey.publicKey.toBase58(),
+        nonceAccount: Keypair.generate().publicKey.toBase58(),
+        nonceValue: Keypair.generate().publicKey.toBase58(),
+        mint: USDC_MINT_DEVNET.toBase58(),
+        amount: '20000000',
+        syncedAt: new Date().toISOString(),
+        status: 'available',
+      },
+      deviceKey,
+      recipient: Keypair.generate().publicKey,
+      amount: 20_000_000n,
+      payerDomain: 'spike.skr',
+    });
+    return Uint8Array.from(Buffer.from(JSON.stringify(envelope), 'utf8'));
+  }
   // The real handshake, at its real size: this is what will travel in the product.
   return encodeHandshake({
     sessionId: hex(Crypto.getRandomBytes(32)),
@@ -49,8 +86,29 @@ function makePayload(mode: Mode): Uint8Array {
   });
 }
 
+type Verdict = { ok: boolean; detail: string };
+
+/** Returns null for payloads that are not vouchers, a verdict for those that are. */
+function checkVoucher(bytes: Uint8Array): Verdict | null {
+  let envelope: any;
+  try {
+    envelope = JSON.parse(Buffer.from(bytes).toString('utf8'));
+  } catch {
+    return null;
+  }
+  if (envelope?.v !== 1 || typeof envelope.tx !== 'string') return null;
+  try {
+    // The recipient is taken from the voucher itself: the question here is whether the
+    // signature and structure survived the trip, not who it is addressed to.
+    const verified = verifyVoucher(envelope, new PublicKey(envelope.hint.recipient));
+    return { ok: true, detail: verified.level };
+  } catch (e: any) {
+    return { ok: false, detail: e?.message ?? String(e) };
+  }
+}
+
 export function NfcSpikeScreen({ onDone }: Props) {
-  const transport = useRef(new NfcTransport()).current;
+  const transport = useRef(new NfcTransport({ maxPayload: SPIKE_MAX_PAYLOAD })).current;
   const abort = useRef<AbortController | null>(null);
 
   const [availability, setAvailability] = useState('Comprobando NFC...');
@@ -66,6 +124,8 @@ export function NfcSpikeScreen({ onDone }: Props) {
   const [reads, setReads] = useState<string[]>([]);
   const [lastRead, setLastRead] = useState<{ bytes: Uint8Array; print: string } | null>(null);
   const [errors, setErrors] = useState(0);
+  const [voucherVerdict, setVoucherVerdict] = useState<Verdict | null>(null);
+  const [validVouchers, setValidVouchers] = useState(0);
   const [readerHint, setReaderHint] = useState('');
 
   const push = (line: string) => setLog((l) => [`${clock()}  ${line}`, ...l].slice(0, 20));
@@ -143,6 +203,8 @@ export function NfcSpikeScreen({ onDone }: Props) {
     setReads([]);
     setLastRead(null);
     setErrors(0);
+    setVoucherVerdict(null);
+    setValidVouchers(0);
     setRole('reading');
     push('Lector armado');
 
@@ -154,6 +216,11 @@ export function NfcSpikeScreen({ onDone }: Props) {
         setLastRead({ bytes, print });
         setReads((r) => [...r, print]);
         push(`Leidos ${bytes.length} B · huella ${print}`);
+
+        const verdict = checkVoucher(bytes);
+        setVoucherVerdict(verdict);
+        if (verdict?.ok) setValidVouchers((n) => n + 1);
+        if (verdict) push(`Voucher ${verdict.ok ? 'valido' : 'INVALIDO'}: ${verdict.detail}`);
       } catch (e: any) {
         if (controller.signal.aborted) break;
         setErrors((n) => n + 1);
@@ -178,7 +245,7 @@ export function NfcSpikeScreen({ onDone }: Props) {
 
       <Text style={styles.section}>Payload</Text>
       <View style={styles.row}>
-        {(['raw32', 'handshake'] as Mode[]).map((m) => (
+        {(['raw32', 'handshake', 'voucher'] as Mode[]).map((m) => (
           <Pressable
             key={m}
             disabled={busy}
@@ -186,7 +253,7 @@ export function NfcSpikeScreen({ onDone }: Props) {
             style={[styles.chip, mode === m && styles.chipOn, busy && styles.dim]}
           >
             <Text style={mode === m ? styles.chipTextOn : styles.chipText}>
-              {m === 'raw32' ? '32 B aleatorios' : 'Handshake real'}
+              {MODE_LABEL[m]}
             </Text>
           </Pressable>
         ))}
@@ -230,6 +297,11 @@ export function NfcSpikeScreen({ onDone }: Props) {
           <Text style={styles.stat}>
             OK: {reads.length} · errores: {errors} · identicas a la 1ª: {identical}/{reads.length}
           </Text>
+          {voucherVerdict && (
+            <Text style={voucherVerdict.ok ? styles.valid : styles.invalid}>
+              Voucher {voucherVerdict.ok ? 'valido' : 'INVALIDO'} · validos: {validVouchers}/{reads.length}
+            </Text>
+          )}
         </View>
       )}
 
@@ -298,5 +370,7 @@ const styles = StyleSheet.create({
   hex: { color: theme.text, fontSize: 12, fontFamily: 'monospace', marginBottom: spacing(1) },
   stat: { color: theme.text, fontSize: 15, fontWeight: '600', marginTop: spacing(0.5) },
   hint: { color: theme.warning, fontSize: 13, marginTop: spacing(0.5) },
+  valid: { color: theme.accent, fontSize: 15, fontWeight: '600', marginTop: spacing(0.5) },
+  invalid: { color: theme.danger, fontSize: 15, fontWeight: '600', marginTop: spacing(0.5) },
   logLine: { color: theme.textMuted, fontSize: 12, fontFamily: 'monospace', marginBottom: 2 },
 });

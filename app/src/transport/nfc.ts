@@ -27,7 +27,15 @@ import { Transport, NfcHandshake, MAX_NFC_BYTES } from './types';
 export class NfcTransport implements Transport {
   readonly id = 'nfc' as const;
   readonly label = 'NFC';
-  readonly maxPayload = MAX_NFC_BYTES;
+  readonly maxPayload: number;
+
+  /**
+   * `maxPayload` defaults to the handshake budget. Spike 03 raises it to find out whether
+   * a whole voucher fits: if it does, this default is what changes.
+   */
+  constructor(options: { maxPayload?: number } = {}) {
+    this.maxPayload = options.maxPayload ?? MAX_NFC_BYTES;
+  }
 
   async isAvailable() {
     try {
