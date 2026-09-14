@@ -1,14 +1,14 @@
 # Phase 0 results — what works and what doesn't
 
 > The deliverable of phase 0. The plan for phases 1–4 adapts to this, not the other way
-> around. Updated at the close of each spike day. Last update: **September 10, 2026**.
+> around. Updated at the close of each spike day. Last update: **September 14, 2026**.
 
 | # | Question | Day | Status |
 |---|---|---|---|
 | 00 | Do the Solana polyfills work inside the app? | 1 | ✅ **YES** |
 | 01 | Does a durable-nonce tx survive the passage of time? | 2 | ✅ **YES** — on localnet *and* devnet |
 | 02 | Can 800 bytes move over BLE between two phones? | 3 | ⬜ |
-| 03 | Can 32 bytes move over NFC HCE? | 4 | ⬜ |
+| 03 | Can 32 bytes move over NFC HCE? | 4 | ✅ **YES** — both directions, OnePlus Nord 2 ↔ Seeker. Reliability series still to run |
 
 ---
 
@@ -209,6 +209,60 @@ recoverable when the slot closes.
 - It hasn't run with the **Anchor program** in the loop, only with System Program SOL
   transfers. That's **day 8**, and it's still the test that matters most.
 
+
+---
+
+## Spike 03 — NFC HCE between two phones · ✅ ANSWERED
+
+**The kill rule did not fire.** Run on 2026-09-14 on two real phones: a **OnePlus Nord 2**
+(A) and a **Solana Seeker** (B), with the debug build and the spike screen at the bottom
+of Home (`app/src/screens/NfcSpikeScreen.tsx`).
+
+Phone-to-phone NFC means one side emulating a card (HCE) and the other in reader mode —
+Android Beam has been gone since Android 10. The emulating phone serves an NDEF Type 4
+tag with one text record, the payload in base64; the reader uses Android's standard NDEF
+stack. Both screens show a truncated SHA-256 of the payload, so "arrived intact" is a
+comparison, not an impression.
+
+| Test | Emulates | Reads | Payload | Observed |
+|---|---|---|---|---|
+| 1 | Nord 2 | Seeker | 32 random bytes | ✅ `OK: 1 · errores: 0 · 1/1`, same fingerprint |
+| 2 | Seeker | Nord 2 | 32 random bytes | ✅ `OK: 1 · errores: 0 · 1/1`, same fingerprint |
+
+Nothing odd was seen. Both phones emulate and both read, so the roles are free to choose
+when the payment flow is designed.
+
+### Four defects found before the phones were touched
+
+The spike would have failed on this same hardware without them, and the hard rule would
+have buried NFC for a bug that was not NFC's.
+
+1. **The AID list did not include the AID the library answers.** `react-native-hce` only
+   accepts the SELECT for the NDEF Tag Type 4 application, `D2760000850101`; the config
+   plugin registered only our proprietary `F04E4F4E4345504159`. Android routes by AID, so
+   the tap would never have reached the service. Both are registered now.
+2. **Only the first tap worked.** `CardService` never cleared the selected application, so
+   the next tap's SELECT went to the old tag, which answers `6A82`.
+3. **A new payload served the old bytes.** The NDEF content was read once, when the
+   service was created.
+4. **A reader that touched and left before selecting crashed the service** —
+   `onDeactivated` had no null check.
+
+2–4 are fixed in `app/patches/react-native-hce+0.3.0.patch`, applied by `patch-package`
+on every `npm install`. If the library is ever upgraded, the patch has to be checked
+against the new version rather than regenerated blindly.
+
+### What this spike does NOT prove yet
+
+- **Reliability.** One tap per direction proves the path exists, not that it holds up at
+  a counter. The series planned for that — 10 taps each way, 8/10 to pass — is still to
+  run, and it is the number the video depends on.
+- **The edge cases**: emitter in the background (should work), emitter locked (must fail —
+  `requireDeviceUnlock="true"`), the real ~175 B handshake, and a quick tap.
+- **A voucher-sized payload (~800 B).** The design keeps NFC to the handshake because it
+  was expected to be fragile. If 800 B goes through as cleanly, NFC can carry the voucher
+  and BLE stops being on the critical path of a tap payment.
+- Android versions were not recorded.
 
 ---
 

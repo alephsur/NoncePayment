@@ -54,10 +54,17 @@ architecture. Only answers to questions that could change the entire plan.
       The roles probably have to be inverted (the recipient advertises, the payer writes).
       Decide TODAY, not in week 3.
 
-### Day 4 — NFC HCE, and the kill rule
-- [ ] Config plugin → `HostApduService` in the manifest
-- [ ] One phone emulates a card, the other reads 32 bytes
+### Day 4 — NFC HCE, and the kill rule · ✅
+- [x] Config plugin → `HostApduService` in the manifest
+      — it registered the wrong AID for the library, and the library itself had three
+      bugs that broke every tap after the first; all fixed before the phones came out
+- [x] One phone emulates a card, the other reads 32 bytes
+      — **OnePlus Nord 2 ↔ Seeker, in both directions**, same fingerprint on both screens
+      — still to run: the 10-tap series each way, the edge cases, and ~800 B
+      (see [`SPIKE-RESULTS.md`](SPIKE-RESULTS.md))
 
+> **Outcome: NFC survives.**
+>
 > ### 🚨 HARD RULE
 > **If by the end of day 4 NFC isn't moving 32 bytes between two real phones, it gets
 > buried.** Delete `transport/nfc.ts`, drop it from the selector, and continue with
@@ -174,7 +181,8 @@ day** — it's your safety net if something breaks later.
 ## Open questions to settle during the spike
 
 1. **Who advertises over BLE?** Probably the recipient. Confirm on day 3.
-2. **Does NFC survive?** Decided on day 4, under the hard rule.
+2. ~~**Does NFC survive?**~~ ✅ **Yes** — 32 bytes both ways between a Nord 2 and a Seeker.
+   Open follow-up: can it carry the whole ~800 B voucher?
 3. **Devnet or mainnet for the video?** Devnet is safer. Mainnet with tiny amounts is more
    impressive. Decide on day 25, not before.
 4. **Fixed denominations or free-form amounts when loading?** The program supports both

@@ -8,7 +8,7 @@ Its only job is to answer questions that could change the entire plan.
 | 00 | Do the Solana polyfills work inside the app? | 1 | Blocking. Without this there is no project |
 | 01 | Does a durable-nonce tx survive >10 min? | 2 | ✅ **YES** — answered |
 | 02 | Can 800 bytes move over BLE between two phones? | 3 | If not, QR remains |
-| 03 | Can 32 bytes move over NFC HCE? | 4 | **If not: NFC gets buried and we move on** |
+| 03 | Can 32 bytes move over NFC HCE? | 4 | ✅ **YES** — answered, in the app (`NfcSpikeScreen`) |
 
 ## 00 — Polyfills (inside the app, not here)
 
