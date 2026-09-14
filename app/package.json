@@ -9,7 +9,8 @@
     "build:dev": "eas build --profile development --platform android",
     "build:apk": "eas build --profile preview --platform android",
     "typecheck": "tsc --noEmit",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@noncepayment/sdk": "file:../packages/sdk",
@@ -41,6 +42,7 @@
   },
   "devDependencies": {
     "@types/react": "~18.3.12",
+    "patch-package": "^8.0.1",
     "typescript": "~5.6.3"
   },
   "private": true

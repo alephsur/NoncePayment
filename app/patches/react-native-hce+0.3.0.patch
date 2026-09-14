@@ -1,0 +1,87 @@
+diff --git a/node_modules/react-native-hce/android/src/main/java/com/reactnativehce/services/CardService.java b/node_modules/react-native-hce/android/src/main/java/com/reactnativehce/services/CardService.java
+index f666c0f..17acff3 100644
+--- a/node_modules/react-native-hce/android/src/main/java/com/reactnativehce/services/CardService.java
++++ b/node_modules/react-native-hce/android/src/main/java/com/reactnativehce/services/CardService.java
+@@ -17,27 +17,48 @@ import com.reactnativehce.IHCEApplication;
+ import com.reactnativehce.managers.PrefManager;
+ import com.reactnativehce.apps.nfc.NFCTagType4;
+ 
+-import java.util.ArrayList;
+-
++/*
++ * NoncePayment patch (patches/react-native-hce+0.3.0.patch). Upstream had three bugs that
++ * make repeated taps fail on perfectly good hardware:
++ *
++ *  1. currentHCEApplication was never cleared, so the SELECT of the second tap was fed to
++ *     the already-selected tag, which answers 6A82 to it. Only the first tap ever worked
++ *     while Android kept the service bound.
++ *  2. The NDEF content was read once, in onCreate. A payload set after the service was
++ *     bound kept serving the old bytes.
++ *  3. onDeactivated dereferenced currentHCEApplication without a null check, so a reader
++ *     that touched and left before selecting crashed the service.
++ *
++ * Fix: every SELECT starts a fresh transaction with a fresh tag built from the current
++ * content, and deactivation forgets it.
++ */
+ public class CardService extends HostApduService {
+     private static final String TAG = "CardService";
+ 
+-    private final ArrayList<IHCEApplication> registeredHCEApplications = new ArrayList<>();
+     private IHCEApplication currentHCEApplication = null;
+ 
+     @Override
+     public byte[] processCommandApdu(byte[] command, Bundle extras) {
+-      if (currentHCEApplication != null) {
+-        return currentHCEApplication.processCommand(command);
+-      }
+-
+       if (ApduHelper.commandByRangeEquals(command, 0, 4, ApduHelper.C_APDU_SELECT_APP)) {
+-        for (IHCEApplication app : registeredHCEApplications) {
+-          if (app.assertSelectCommand(command)) {
+-            currentHCEApplication = app;
+-            return ApduHelper.R_APDU_OK;
+-          }
++        currentHCEApplication = null;
++
++        Context context = getApplicationContext();
++        IHCEApplication app = new NFCTagType4(
++          PrefManager.getInstance(context),
++          HceViewModel.getInstance(context)
++        );
++
++        if (app.assertSelectCommand(command)) {
++          currentHCEApplication = app;
++          return ApduHelper.R_APDU_OK;
+         }
++
++        Log.d(TAG, "SELECT for an application we do not emulate");
++        return ApduHelper.R_APDU_ERROR;
++      }
++
++      if (currentHCEApplication != null) {
++        return currentHCEApplication.processCommand(command);
+       }
+ 
+       return ApduHelper.R_APDU_ERROR;
+@@ -46,17 +67,14 @@ public class CardService extends HostApduService {
+     @Override
+     public void onCreate() {
+       Log.d(TAG, "Starting service");
+-      Context context = getApplicationContext();
+-
+-      registeredHCEApplications.add(new NFCTagType4(
+-        PrefManager.getInstance(context),
+-        HceViewModel.getInstance(context)
+-      ));
+     }
+ 
+     @Override
+     public void onDeactivated(int reason) {
+       Log.d(TAG, "Finishing service: " + reason);
+-      this.currentHCEApplication.onDestroy(reason);
++      if (currentHCEApplication != null) {
++        currentHCEApplication.onDestroy(reason);
++      }
++      currentHCEApplication = null;
+     }
+ }

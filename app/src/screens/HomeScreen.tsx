@@ -10,8 +10,9 @@ import type { DeviceKeyState } from '../store/useDeviceKey';
 import type { WalletState } from '../wallet/useWallet';
 import { PayScreen } from './PayScreen';
 import { ReceiveScreen } from './ReceiveScreen';
+import { NfcSpikeScreen } from './NfcSpikeScreen';
 
-type Tab = 'home' | 'pay' | 'receive';
+type Tab = 'home' | 'pay' | 'receive' | 'nfc-spike';
 
 interface Props {
   ledger: Ledger;
@@ -39,6 +40,10 @@ export function HomeScreen(props: Props) {
   }
   if (tab === 'receive' && identity) {
     return <ReceiveScreen deviceKey={identity.publicKey} onDone={back} />;
+  }
+  // Spike 03: needs no device key and no banknotes, only NFC.
+  if (tab === 'nfc-spike') {
+    return <NfcSpikeScreen onDone={back} />;
   }
 
   const notes = availableNotes(props.ledger);
@@ -128,6 +133,10 @@ export function HomeScreen(props: Props) {
           ))}
         </>
       )}
+
+      <Pressable onPress={() => setTab('nfc-spike')} style={styles.spikeLink}>
+        <Text style={styles.spikeLinkText}>Spike 03 · prueba NFC entre dos moviles</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -175,4 +184,6 @@ const styles = StyleSheet.create({
     borderColor: theme.border,
   },
   emptyText: { color: theme.textMuted, fontSize: 14, lineHeight: 20 },
+  spikeLink: { marginTop: spacing(4), alignItems: 'center', paddingVertical: spacing(1.5) },
+  spikeLinkText: { color: theme.textMuted, fontSize: 13, textDecorationLine: 'underline' },
 });
