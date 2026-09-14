@@ -139,7 +139,7 @@ User picks denominations  →  MWA authorizes
 ```
 Amount + recipient  →  select the smallest banknote that covers it
   → biometrics  →  buildVoucher() [no network]
-  → transport: NFC handshake → BLE, or QR
+  → transport: NFC in two taps (read the recipient, send the voucher), or QR
   → mark the slot as spent + enqueue for settlement
 ```
 

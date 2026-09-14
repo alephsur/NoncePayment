@@ -175,6 +175,11 @@ See `docs/THREAT-MODEL.md` for the full analysis.
 **NFC doesn't carry the whole voucher.** It carries only a 32-byte session identifier; BLE
 does the actual exchange. That reduces NFC to its easy part while the video still gets its tap.
 
+> **Superseded on September 14 (spike 03).** The de-risking turned out to be unnecessary:
+> a whole signed voucher (1055 B) crossed NFC 11 times out of 11, both directions, with a
+> short tap. NFC now carries the payment in two taps, QR stays as the fallback, and BLE is
+> optional. See [`SPIKE-RESULTS.md`](SPIKE-RESULTS.md).
+
 ### Expo + NFC reality
 
 `react-native-hce` is maintained and works, but **Expo doesn't support HCE natively**

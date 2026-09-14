@@ -53,7 +53,7 @@ where a normal one expires after about a minute.
 | RN polyfills + app entry point | ✅ **proven on device** — `Keypair.generate()` runs inside the app |
 | NFC HCE config plugin | ✅ **working on real phones** — plus a patch for `react-native-hce` |
 | QR transport | ✅ scaffolding ready |
-| BLE transport | 🚧 blocked on the spike (day 3) |
+| BLE transport | ⏸ optional — NFC carries the whole voucher, so the demo does not depend on it |
 | NFC transport | ✅ **carries a whole signed voucher** — 1055 B, 11/11 reads both ways, OnePlus Nord 2 ↔ Seeker |
 | MWA: connect, reauthorize, balance | ✅ **working on a real Seeker** |
 | Device key: generate, store, biometric gate | ✅ written — Keystore-bound, not yet exercised on hardware |

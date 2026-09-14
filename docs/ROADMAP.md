@@ -48,11 +48,14 @@ architecture. Only answers to questions that could change the entire plan.
 > instead of trusting the clock, it signs a **control** tx with a normal blockhash at the
 > same instant and shows it die while the durable one confirms.
 
-### Day 3 — BLE between two phones
+### Day 3 — BLE between two phones · ⏸ optional
+> **Demoted on September 14.** Spike 03 showed NFC carries a whole signed voucher, so a
+> tap payment no longer needs BLE. This spike only runs if the buffer days allow it —
+> and advertising from `react-native-ble-plx` would need another native module first.
+
 - [ ] Move 800 bytes from one Android device to another
 - [ ] **Key decision:** who advertises? `react-native-ble-plx` only acts as central.
       The roles probably have to be inverted (the recipient advertises, the payer writes).
-      Decide TODAY, not in week 3.
 
 ### Day 4 — NFC HCE, and the kill rule · ✅
 - [x] Config plugin → `HostApduService` in the manifest
@@ -123,10 +126,14 @@ Ugly but working. No polish here.
       — **pending on the phone:** create the key, watch the prompt, pay with it, then
       enrol a new fingerprint and confirm the app reports the key as destroyed
 - [ ] Day 12 — **Load banknotes**: create nonces + `open_slot` via MWA, cache them
-- [ ] Day 13 — **Pay**: `buildVoucher()` offline + transmission over QR
+- [ ] Day 13 — **Pay**: `buildVoucher()` offline + transmission over **NFC in two taps**
+      (the recipient emulates its address, the payer reads it, signs, and emulates the
+      voucher back), with **QR as the fallback** for phones without NFC
 - [ ] Day 14 — **Receive**: `verifyVoucher()` offline + verification levels
 - [ ] Day 15 — Settlement queue + background task
-- [ ] Day 16 — The transport that won the spike (BLE, and NFC if it survived)
+- [ ] Day 16 — **Freed up** (NFC already works end to end). Buffer first; then polish the
+      tap gesture — timing, haptics, what each screen says between the two taps — because
+      that gesture is the shot the video is built around
 
 **Phase output:** the full loop works in airplane mode. **Record a rough video that same
 day** — it's your safety net if something breaks later.
@@ -181,7 +188,7 @@ day** — it's your safety net if something breaks later.
 
 ## Open questions to settle during the spike
 
-1. **Who advertises over BLE?** Probably the recipient. Confirm on day 3.
+1. ~~**Who advertises over BLE?**~~ ⏸ Moot for now — BLE is off the critical path (spike 03).
 2. ~~**Does NFC survive?**~~ ✅ **Yes** — 32 bytes both ways between a Nord 2 and a Seeker.
    ~~Can it carry the whole voucher?~~ ✅ **Yes** — 1055 B, 11/11, both directions. BLE is
    no longer on the critical path of a tap payment.
