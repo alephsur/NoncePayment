@@ -60,8 +60,9 @@ architecture. Only answers to questions that could change the entire plan.
       bugs that broke every tap after the first; all fixed before the phones came out
 - [x] One phone emulates a card, the other reads 32 bytes
       — **OnePlus Nord 2 ↔ Seeker, in both directions**, same fingerprint on both screens
-      — still to run: the 10-tap series each way, the edge cases, and ~800 B
-      (see [`SPIKE-RESULTS.md`](SPIKE-RESULTS.md))
+      — and then **a whole signed voucher (1055 B)**: 11/11 reads across both directions,
+      each verified with `verifyVoucher()`, with a short tap. NFC can carry the payment,
+      not just the handshake (see [`SPIKE-RESULTS.md`](SPIKE-RESULTS.md))
 
 > **Outcome: NFC survives.**
 >
@@ -182,7 +183,8 @@ day** — it's your safety net if something breaks later.
 
 1. **Who advertises over BLE?** Probably the recipient. Confirm on day 3.
 2. ~~**Does NFC survive?**~~ ✅ **Yes** — 32 bytes both ways between a Nord 2 and a Seeker.
-   Open follow-up: can it carry the whole ~800 B voucher?
+   ~~Can it carry the whole voucher?~~ ✅ **Yes** — 1055 B, 11/11, both directions. BLE is
+   no longer on the critical path of a tap payment.
 3. **Devnet or mainnet for the video?** Devnet is safer. Mainnet with tiny amounts is more
    impressive. Decide on day 25, not before.
 4. **Fixed denominations or free-form amounts when loading?** The program supports both

@@ -54,7 +54,7 @@ where a normal one expires after about a minute.
 | NFC HCE config plugin | ✅ **working on real phones** — plus a patch for `react-native-hce` |
 | QR transport | ✅ scaffolding ready |
 | BLE transport | 🚧 blocked on the spike (day 3) |
-| NFC transport | ✅ **spike passed** — 32 B both ways, OnePlus Nord 2 ↔ Seeker; reliability series pending |
+| NFC transport | ✅ **carries a whole signed voucher** — 1055 B, 11/11 reads both ways, OnePlus Nord 2 ↔ Seeker |
 | MWA: connect, reauthorize, balance | ✅ **working on a real Seeker** |
 | Device key: generate, store, biometric gate | ✅ written — Keystore-bound, not yet exercised on hardware |
 | Pay / Receive screens | ✅ scaffolding ready |
@@ -115,8 +115,8 @@ npx expo run:android
 
 1. ~~**Solana polyfills on RN**~~ — ✅ settled. Three real defects, all fixed; the app
    generates a keypair on screen.
-2. ~~**NFC HCE**~~ — ✅ survived the hard rule: bytes move both ways between two real
-   phones. Reliability over a series of taps is still to be measured.
+2. ~~**NFC HCE**~~ — ✅ survived the hard rule, and then some: a whole signed voucher
+   moves both ways between two real phones, 11 reads out of 11.
 3. **Running out of time for the video** — the last 4 days are untouchable.
 
 ---

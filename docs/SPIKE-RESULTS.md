@@ -8,7 +8,7 @@
 | 00 | Do the Solana polyfills work inside the app? | 1 | ✅ **YES** |
 | 01 | Does a durable-nonce tx survive the passage of time? | 2 | ✅ **YES** — on localnet *and* devnet |
 | 02 | Can 800 bytes move over BLE between two phones? | 3 | ⬜ |
-| 03 | Can 32 bytes move over NFC HCE? | 4 | ✅ **YES** — both directions, OnePlus Nord 2 ↔ Seeker. Reliability series still to run |
+| 03 | Can 32 bytes move over NFC HCE? | 4 | ✅ **YES, and far more** — a whole signed voucher (1055 B), 11/11 reads across both directions, OnePlus Nord 2 ↔ Seeker |
 
 ---
 
@@ -252,16 +252,48 @@ have buried NFC for a bug that was not NFC's.
 on every `npm install`. If the library is ever upgraded, the patch has to be checked
 against the new version rather than regenerated blindly.
 
+### Part two — a whole voucher over NFC · ✅
+
+The design kept NFC to the handshake because NFC was expected to be fragile. It wasn't,
+so the follow-up asked whether a whole voucher fits in a tap.
+
+The payload is a **real voucher**: built and signed offline by the SDK's `buildVoucher()`
+against a made-up banknote, exactly as the pay screen will build it. Measuring it
+corrected the design's estimate — **1055 B, not ~800**, and 1408 characters on the air
+once the transport base64s it. That is 30× the first test and several READ commands per
+tap instead of one. The reader runs `verifyVoucher()` on what arrives, so a pass means a
+payable voucher survived the tap, not merely a blob of the same size.
+
+| Payload | Directions | Reads | Observed |
+|---|---|---|---|
+| Real voucher, 1055 B | Nord 2 → Seeker **and** Seeker → Nord 2 | 11 | ✅ **all correct** — same fingerprint, voucher verified |
+
+The tap stayed **short**: holding the phones together longer than for 32 bytes was not
+needed. This also covers the reliability series that part one left open — with a payload
+30× larger, which is the harder case.
+
+### Conclusions that change the plan
+
+1. **NFC can carry the voucher, not just the handshake.** A tap payment needs no BLE: the
+   recipient's phone emulates its address, the payer reads it, signs, and emulates the
+   voucher back. Two taps, no pairing, no radio negotiation.
+2. **BLE drops off the critical path.** Spike 02 stops being blocking, and its hardest
+   open problem — `react-native-ble-plx` cannot advertise, so it needs another native
+   module — is no longer something the demo depends on.
+3. **`MAX_NFC_BYTES` = 255 is now a design choice, not a limit.** It stays until the
+   payment flow is rebuilt around NFC; the spike screen overrides it.
+4. **The double base64 is waste.** The voucher's transaction is already base64 inside the
+   JSON, and the transport base64s the whole thing again because the library only emulates
+   text records. It fits, so it is not urgent, but it is ~350 B of air time to win back.
+
 ### What this spike does NOT prove yet
 
-- **Reliability.** One tap per direction proves the path exists, not that it holds up at
-  a counter. The series planned for that — 10 taps each way, 8/10 to pass — is still to
-  run, and it is the number the video depends on.
 - **The edge cases**: emitter in the background (should work), emitter locked (must fail —
-  `requireDeviceUnlock="true"`), the real ~175 B handshake, and a quick tap.
-- **A voucher-sized payload (~800 B).** The design keeps NFC to the handshake because it
-  was expected to be fragile. If 800 B goes through as cleanly, NFC can carry the voucher
-  and BLE stops being on the critical path of a tap payment.
+  `requireDeviceUnlock="true"`), and a deliberately quick tap.
+- **A payment flow.** The two roles have only been exercised one at a time, by hand. The
+  two-tap sequence with the biometric prompt in between is untested.
+- **Other phones.** Two models, both known to behave; Samsung and Xiaomi route HCE through
+  their own settings and are the ones that usually surprise.
 - Android versions were not recorded.
 
 ---
