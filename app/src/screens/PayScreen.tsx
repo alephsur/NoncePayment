@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { PublicKey } from '@solana/web3.js';
 import { buildVoucher } from '@noncepayment/sdk';
@@ -25,6 +25,12 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
   const [recipientText, setRecipientText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [transportLabel, setTransportLabel] = useState('');
+
+  // Whatever happens — paid, cancelled, or backed out of mid-tap — nothing keeps
+  // emulating once this screen is gone.
+  useEffect(() => () => {
+    stopCardEmulation().catch(() => undefined);
+  }, []);
 
   async function pay() {
     setError(null);
@@ -53,10 +59,13 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
       setTransportLabel(transport.label);
       const payload = Uint8Array.from(Buffer.from(JSON.stringify(envelope), 'utf8'));
       await transport.send(payload);
-      // Immediately, not on leaving the screen. A voucher names one recipient and one
-      // nonce, so there is nothing to gain by staying readable — and plenty to lose:
-      // whatever is left emulating outlives the process.
-      await transport.stop();
+      // The tag deliberately stays live until this screen is left.
+      //
+      // `send` resolves when the library reports a read, and that report is a hint, not
+      // proof: a reader that touched the tag and pulled away before the content came
+      // across counts as a read. When that happens the recipient has nothing, and the one
+      // useful thing the payer can do is hold the phones together again — which needs the
+      // tag still there. Leaving the screen stops it, and so does opening the app.
 
       // 4. Marcar el billete como gastado y guardar copia para reintentar liquidacion.
       await updateLedger((l) => ({
@@ -102,6 +111,11 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
         <Text style={styles.doneAmount}>${amountText} enviados</Text>
         <Text style={styles.centerText}>
           Se liquidara en Solana automaticamente cuando vuelva la cobertura.
+        </Text>
+        <Text style={styles.retryHint}>
+          Si en el otro movil no ha aparecido el cobro, vuelve a juntarlos sin salir de
+          esta pantalla y mantenlos pegados un segundo mas: el pago sigue disponible y es
+          el mismo, no se puede cobrar dos veces.
         </Text>
         <Pressable style={styles.primary} onPress={onDone}>
           <Text style={styles.primaryText}>Hecho</Text>
@@ -149,6 +163,14 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
 const styles = StyleSheet.create({
   container: { padding: spacing(3), flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing(4) },
+  retryHint: {
+    color: theme.warning,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginTop: spacing(2),
+    paddingHorizontal: spacing(2),
+  },
   centerText: {
     color: theme.textMuted,
     marginTop: spacing(2),

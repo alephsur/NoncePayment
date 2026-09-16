@@ -97,6 +97,45 @@ export async function signAndSendWithWallet(
   });
 }
 
+/**
+ * Igual que `signAndSendWithWallet`, pero la wallet SOLO FIRMA: enviamos nosotros.
+ *
+ * Dos razones, y las dos salieron de una retirada que no funcionaba.
+ *
+ * `signAndSendTransactions` es opcional en MWA — hay wallets que solo implementan
+ * `signTransactions` — y cuando falta, la asociacion se cae con un error nativo que no
+ * explica nada. Y, mas importante: cuando envia la wallet, envia por SU RPC y a SU red.
+ * Nosotros sabemos a que cluster va esto; la wallet puede estar mirando otro.
+ *
+ * Enviarlo nosotros nos devuelve tambien el control de los reintentos y de la
+ * confirmacion, que es justo lo que hace falta cuando algo no llega.
+ */
+export async function signWithWallet(
+  authToken: string | null,
+  build: (owner: PublicKey) => Promise<Transaction[]>,
+): Promise<{ signed: Transaction[]; session: WalletSession }> {
+  return transact(async (wallet: Web3MobileWallet) => {
+    let auth;
+    try {
+      if (!authToken) throw new Error('no token');
+      auth = await wallet.reauthorize({ auth_token: authToken, identity: APP_IDENTITY });
+    } catch {
+      auth = await wallet.authorize({ chain: CHAIN, identity: APP_IDENTITY });
+    }
+
+    const account = auth.accounts[0];
+    const session: WalletSession = {
+      publicKey: new PublicKey(toBytes(account.address)),
+      authToken: auth.auth_token,
+      label: account.label,
+    };
+
+    const transactions = await build(session.publicKey);
+    const signed = await wallet.signTransactions({ transactions });
+    return { signed, session };
+  });
+}
+
 function toBytes(base64Address: string): Uint8Array {
   return Uint8Array.from(Buffer.from(base64Address, 'base64'));
 }

@@ -14,7 +14,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 
 import { WithdrawStep, withdrawReceived } from '../net/withdraw';
 import type { DeviceKeyState } from '../store/useDeviceKey';
-import type { WalletState } from '../wallet/useWallet';
+import { explain as explainWalletError, WalletState } from '../wallet/useWallet';
 import { explainDeviceKeyError } from './errors';
 import { formatUsdc, shortKey } from './format';
 import { theme, spacing } from './theme';
@@ -28,6 +28,7 @@ interface Props {
 }
 
 const STEP_TEXT: Record<WithdrawStep, string> = {
+  checking: 'Comprobando tu wallet...',
   wallet: 'Aprueba el traspaso en tu wallet...',
   confirming: 'Esperando confirmacion de la red...',
   syncing: 'Actualizando tu saldo...',
@@ -49,9 +50,15 @@ export function ReceivedCard({ amount, wallet, deviceKey, online, onDone }: Prop
       setDone(true);
       onDone();
     } catch (e) {
-      setError(
-        explainDeviceKeyError(e, 'Traspaso cancelado: no se ha confirmado la identidad.'),
+      // Dos capas pueden fallar aqui y hablan idiomas distintos: la clave de dispositivo
+      // y la wallet. Lo que no reconoce la primera se lo pasa a la segunda, y asi un
+      // error nativo opaco no acaba en pantalla tal cual — que es lo que pasaba.
+      const fromKey = explainDeviceKeyError(
+        e,
+        'Traspaso cancelado: no se ha confirmado la identidad.',
       );
+      const raw = String((e as any)?.message ?? e);
+      setError(fromKey === raw ? explainWalletError(e) : fromKey);
     } finally {
       setStep(null);
     }

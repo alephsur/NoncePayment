@@ -158,9 +158,16 @@ Ugly but working. No polish here.
 - [ ] Day 14 — **Receive**: `verifyVoucher()` offline + verification levels
       — **the way out, which no plan had**: money received is not a banknote, it is plain
       USDC in the device key's token account, and the private key never leaves the
-      Keystore — so without an in-app withdrawal that money can never move again. Written
-      (`withdraw.ts`, wallet pays the fee so a charge-only phone never needs SOL); the
-      two-signature path is not yet exercised on hardware
+      Keystore — so without an in-app withdrawal that money can never move again.
+      **Working on hardware**: $2 moved from the Nord 2's device key to the wallet, two
+      signatures in one transaction (the device key as token authority, the wallet as fee
+      payer, so a charge-only phone never needs SOL of its own)
+      — the wallet only SIGNS; we broadcast. `signAndSendTransactions` is optional in MWA,
+      and a wallet that sends uses its own RPC and its own cluster
+      — **Phantom declines us**: `dApp identity is not verified`. It wants Digital Asset
+      Links at `identity.uri` tying the domain to the package, and `noncepayment.app` is
+      a placeholder we do not own. Seed Vault and Jupiter do not ask. Day 28, with the
+      signed release — and both certificate fingerprints, debug and release
 - [ ] Day 15 — Settlement queue + background task
 - [ ] Day 16 — **Freed up** (NFC already works end to end). Buffer first; then polish the
       tap gesture — timing, haptics, what each screen says between the two taps — because

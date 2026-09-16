@@ -100,19 +100,26 @@ export class NfcTransport implements Transport {
   }
 
   /**
-   * Reader mode: waits for an NDEF tag and returns the payload it carries.
+   * Reader mode: waits until a tap actually delivers a payload.
+   *
+   * The subtlety that cost a failed payment: `requestTechnology` resolves as soon as the
+   * tag is DISCOVERED, and the tag it caches at that moment usually has no NDEF message
+   * yet. With HCE the content only arrives after several APDU round trips, so a short tap
+   * — phones touched and pulled apart — discovers a tag and nothing else. Reading
+   * `tag.ndefMessage` there gave "la etiqueta no trae ningun mensaje NDEF" and killed the
+   * whole receive, when the honest answer was "that tap was too short, try again".
+   *
+   * So: ask for the message EXPLICITLY, which reads it from the tag then and there, and
+   * treat a tap that yields nothing as a tap that did not happen. The loop keeps waiting
+   * instead of failing, because the user is standing there holding two phones and the
+   * only sane instruction is "hold them together a moment longer".
    *
    * Reader mode, not foreground dispatch: while it is on, this phone stops listening as a
    * card, so even with its own emulation switched on it neither reads itself nor clashes
    * with the other phone.
    */
   async receive(signal?: AbortSignal): Promise<Uint8Array> {
-    const {
-      default: NfcManager,
-      NfcTech,
-      NfcAdapter,
-      Ndef,
-    } = require('react-native-nfc-manager');
+    const { default: NfcManager, NfcTech, NfcAdapter } = require('react-native-nfc-manager');
 
     const onAbort = () => {
       NfcManager.cancelTechnologyRequest().catch(() => undefined);
@@ -122,30 +129,69 @@ export class NfcTransport implements Transport {
 
     try {
       await NfcManager.start();
-      await NfcManager.requestTechnology(NfcTech.Ndef, {
-        isReaderModeEnabled: true,
-        readerModeFlags: NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_NFC_B,
-      });
-      if (signal?.aborted) throw new Error('Lectura NFC cancelada');
 
-      const tag = await NfcManager.getTag();
-      const record = tag?.ndefMessage?.[0];
-      if (!record) throw new Error('La etiqueta no trae ningun mensaje NDEF');
+      for (;;) {
+        if (signal?.aborted) throw new Error('Lectura NFC cancelada');
+        try {
+          await NfcManager.requestTechnology(NfcTech.Ndef, {
+            isReaderModeEnabled: true,
+            readerModeFlags: NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_NFC_B,
+          });
+          if (signal?.aborted) throw new Error('Lectura NFC cancelada');
 
-      const isText =
-        record.tnf === Ndef.TNF_WELL_KNOWN &&
-        Buffer.from(record.type).toString('latin1') === Ndef.RTD_TEXT;
-      if (!isText) throw new Error('La etiqueta no es de NoncePayment (no es un registro de texto)');
-
-      const base64 = Ndef.text.decodePayload(Uint8Array.from(record.payload));
-      return Uint8Array.from(Buffer.from(base64, 'base64'));
-    } catch (e) {
-      if (signal?.aborted) throw new Error('Lectura NFC cancelada');
-      throw e;
+          const payload = await this.readTapPayload();
+          if (payload) return payload;
+        } catch (e) {
+          if (signal?.aborted) throw new Error('Lectura NFC cancelada');
+          // A tap that broke halfway is not an error worth showing: it is a tap. Only an
+          // abort leaves this loop.
+        } finally {
+          await NfcManager.cancelTechnologyRequest().catch(() => undefined);
+        }
+      }
     } finally {
       signal?.removeEventListener('abort', onAbort);
       await NfcManager.cancelTechnologyRequest().catch(() => undefined);
     }
+  }
+
+  /**
+   * The payload of the tag currently in the field, or null if this tap did not carry one.
+   *
+   * Two attempts: the phones are usually still touching, and the second read costs
+   * milliseconds where making the user tap again costs a gesture.
+   */
+  private async readTapPayload(): Promise<Uint8Array | null> {
+    const { default: NfcManager, Ndef } = require('react-native-nfc-manager');
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) await new Promise((r) => setTimeout(r, 120));
+
+      let record: any = null;
+      try {
+        // Reads the message from the tag now, rather than trusting what discovery cached.
+        const message = await NfcManager.ndefHandler.getNdefMessage();
+        record = message?.ndefMessage?.[0] ?? (Array.isArray(message) ? message[0] : null);
+      } catch {
+        /* the tag left the field mid-read */
+      }
+      if (!record) {
+        const tag = await NfcManager.getTag().catch(() => null);
+        record = tag?.ndefMessage?.[0] ?? null;
+      }
+      if (!record) continue;
+
+      const isText =
+        record.tnf === Ndef.TNF_WELL_KNOWN &&
+        Buffer.from(record.type).toString('latin1') === Ndef.RTD_TEXT;
+      if (!isText) {
+        throw new Error('La etiqueta no es de NoncePayment (no es un registro de texto)');
+      }
+
+      const base64 = Ndef.text.decodePayload(Uint8Array.from(record.payload));
+      return Uint8Array.from(Buffer.from(base64, 'base64'));
+    }
+    return null;
   }
 
   /** Turns off both halves: the emulation and any read in progress. */

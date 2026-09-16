@@ -132,6 +132,15 @@ export function explain(e: any): string {
   if (/no.*wallet|not.*installed|ActivityNotFound|NoWalletFound/i.test(raw)) {
     return 'No hay ninguna wallet compatible instalada. Instala Phantom, Solflare o usa Seed Vault.';
   }
+  // Antes que el caso generico: CancellationException tambien contiene «cancel», y
+  // decirle al usuario que ha cancelado algo que no cancelo lo manda a buscar donde no es.
+  if (/CancellationException|association|session.*(clos|timeout)/i.test(raw)) {
+    return (
+      'La wallet cerro la sesion sin firmar. Comprueba que Phantom esta en devnet ' +
+      '(Ajustes → Developer Settings → Testnet Mode) y vuelve a intentarlo sin cambiar ' +
+      'de app mientras tanto.'
+    );
+  }
   if (/cancel|declin|reject|denied/i.test(raw)) {
     return 'Has cancelado la autorizacion.';
   }
