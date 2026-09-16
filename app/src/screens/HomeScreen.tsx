@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Ledger, availableNotes } from '../store/ledger';
+import { Ledger, availableNotes, unspendableNotes } from '../store/ledger';
 import { DeviceKeyCard } from '../ui/DeviceKeyCard';
 import { WalletCard } from '../ui/WalletCard';
 import { formatUsdc, shortKey } from '../ui/format';
@@ -21,6 +21,8 @@ interface Props {
   wallet: WalletState;
   online: boolean;
   balance: bigint;
+  /** A sync is in flight. Drives the pull-to-refresh spinner. */
+  syncing: boolean;
   onRefresh: () => Promise<void>;
 }
 
@@ -51,6 +53,7 @@ export function HomeScreen(props: Props) {
   }
 
   const notes = availableNotes(props.ledger);
+  const stuck = unspendableNotes(props.ledger);
   const pending = props.ledger.pending.filter((p) => !p.settledSignature);
   const canPay = notes.length > 0 && identity !== null;
   // Loading names the device key as the signer of every banknote, so it has to exist
@@ -58,7 +61,17 @@ export function HomeScreen(props: Props) {
   const canLoad = identity !== null && props.online && props.wallet.session !== null;
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={props.syncing}
+          onRefresh={props.onRefresh}
+          tintColor={theme.accent}
+          colors={[theme.accent]}
+        />
+      }
+    >
       <View style={styles.statusRow}>
         <View
           style={[
@@ -116,6 +129,20 @@ export function HomeScreen(props: Props) {
             </Text>
           </View>
         ))
+      )}
+
+      {stuck.count > 0 && (
+        <View style={styles.stuck}>
+          <Text style={styles.stuckTitle}>
+            {stuck.count} {stuck.count === 1 ? 'billete atrapado' : 'billetes atrapados'} ·
+            ${formatUsdc(stuck.amount)}
+          </Text>
+          <Text style={styles.stuckBody}>
+            Se cargaron con una clave de dispositivo anterior, asi que este movil ya no
+            puede firmarlos. El dinero sigue en Solana y sigue siendo tuyo: hay que
+            recuperarlo con red, desde tu wallet.
+          </Text>
+        </View>
       )}
 
       <Text style={styles.section}>Wallet y recarga</Text>
@@ -197,6 +224,16 @@ const styles = StyleSheet.create({
     borderColor: theme.border,
   },
   notePending: { borderColor: theme.warning },
+  stuck: {
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    padding: spacing(2),
+    marginTop: spacing(1),
+    borderWidth: 1,
+    borderColor: theme.warning,
+  },
+  stuckTitle: { color: theme.warning, fontSize: 15, fontWeight: '700' },
+  stuckBody: { color: theme.textMuted, fontSize: 12, lineHeight: 17, marginTop: spacing(1) },
   noteAmount: { color: theme.text, fontSize: 20, fontWeight: '600' },
   noteMeta: { color: theme.textMuted, fontSize: 12, marginTop: 2 },
   empty: {

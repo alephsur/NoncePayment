@@ -137,7 +137,14 @@ Ugly but working. No polish here.
       — proven on devnet without the phone by `program/scripts/devnet-load.ts`, which runs
       the app's exact SDK path with a keypair in place of MWA and then cashes a voucher
       signed against the nonce value the sync read back. **All checks green**
-      — **pending on the phone:** the same load through Seed Vault's approval sheet
+      — **done on a real Seeker**: two loads through Seed Vault's approval sheet, $1 and
+      $1+$5, confirmed on devnet and read back by the sync
+      — and the phone found the bug the scripts could not: `Buffer.prototype.equals` does
+      not survive a `subarray()` on Hermes, so reading the banknotes back threw and the
+      home showed **$0 with the money already on chain**. See [`SPIKE-RESULTS.md`](SPIKE-RESULTS.md),
+      "the one the tests could not catch"
+      — the home now re-syncs on launch, on coming back to the foreground and on pull, and
+      says out loud how much is locked under a previous device key
 - [ ] Day 13 — **Pay**: `buildVoucher()` offline + transmission over **NFC in two taps**
       (the recipient emulates its address, the payer reads it, signs, and emulates the
       voucher back), with **QR as the fallback** for phones without NFC

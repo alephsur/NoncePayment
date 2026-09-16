@@ -1,7 +1,7 @@
 # Phase 0 results — what works and what doesn't
 
 > The deliverable of phase 0. The plan for phases 1–4 adapts to this, not the other way
-> around. Updated at the close of each spike day. Last update: **September 14, 2026**.
+> around. Updated at the close of each spike day. Last update: **September 16, 2026**.
 
 | # | Question | Day | Status |
 |---|---|---|---|
@@ -99,6 +99,11 @@ round-trip. **Phase 2 has ground to stand on.**
 
 ### Three real defects, in the order they surfaced
 
+> **A fourth turned up on day 12**, long after this spike was declared closed. It is
+> written up below, under "The one the tests could not catch", because it is a different
+> kind of animal: the first three broke the app loudly on the first run, and this one
+> waited three months of project time and then lost money quietly.
+
 Getting there took four rebuilds, and every failure was a genuine bug that would have
 cost a day later.
 
@@ -127,6 +132,39 @@ Metro also needed teaching about the SDK: `@noncepayment/sdk` is a `file:` depen
 symlinked outside the app, so `app/metro.config.js` now adds it to `watchFolders` and
 pins one copy of `@solana/web3.js`, `@solana/spl-token` and `buffer` so `instanceof`
 checks can't fail across duplicated instances.
+
+### The one the tests could not catch (found day 12, on the phone)
+
+`decodeSlot()` checked the Anchor discriminator like this:
+
+```ts
+if (!buf.subarray(0, 8).equals(Buffer.from(SLOT_DISCRIMINATOR))) {
+```
+
+On Hermes, **`subarray()` returns a plain `Uint8Array`, not a `Buffer`**: the view loses
+the prototype, and with it `equals`, which only the polyfill ever had. On Node the same
+call returns a `Buffer` and the method is there — so the SDK's 9 tests passed, and
+`devnet-load.ts`, which runs the app's exact load path against devnet, reported all
+checks green. The defect existed only inside the app.
+
+What it cost: reading banknotes back from chain threw on the first one, so
+`fetchOwnerSlots()` died whole. `loadNotes()` syncs before it returns, so the exception
+also swallowed the success screen. The banknotes were funded and correct on chain, three
+loads across three hours, while the phone showed **$0.00 and a disabled Pay button** and
+the ledger's `lastSyncAt` stayed frozen at the time of the last sync that worked.
+
+Two lessons, and the second is the expensive one:
+
+1. **Over the result of a `subarray()`, call nothing that `Uint8Array` does not have.**
+   There is now one `bytesEqual()` in `packages/sdk/src/bytes.ts` and both call sites use
+   it. `voucher.ts` already had the right idiom; `slots.ts` did not.
+2. **A silent `catch` hid it.** The chain sync ended in `.catch(() => undefined)`, on the
+   reasoning that it fails offline all the time and the user should not see that. True —
+   and it also meant a failure with any other cause produced no message, no log line and
+   no clue, on a screen whose whole job is to say how much money you have. It logs now.
+
+Anything that runs on Hermes and is only tested on Node is unverified. That is the class
+of bug, and it is not closed.
 
 ### How to run it again
 

@@ -14,6 +14,7 @@ import { Connection, NonceAccount, PublicKey } from '@solana/web3.js';
 import { sha256 } from '@noble/hashes/sha256';
 import { utf8ToBytes } from '@noble/hashes/utils';
 
+import { bytesEqual } from './bytes';
 import { MAX_SLOTS, NONCE_ACCOUNT_LENGTH } from './constants';
 import { slotPda } from './pdas';
 
@@ -49,7 +50,7 @@ export function decodeSlot(address: PublicKey, data: Buffer | Uint8Array): OnCha
   if (buf.length < SLOT_ACCOUNT_LENGTH) {
     throw new Error(`Slot account too short: ${buf.length} bytes`);
   }
-  if (!buf.subarray(0, 8).equals(Buffer.from(SLOT_DISCRIMINATOR))) {
+  if (!bytesEqual(buf.subarray(0, 8), SLOT_DISCRIMINATOR)) {
     throw new Error('Not a Slot account (discriminator mismatch)');
   }
 

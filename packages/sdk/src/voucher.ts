@@ -23,6 +23,7 @@ import { ed25519 } from '@noble/curves/ed25519';
 import { sha256 } from '@noble/hashes/sha256';
 import { utf8ToBytes } from '@noble/hashes/utils';
 
+import { bytesEqual } from './bytes';
 import { PROGRAM_ID, SYSTEM_IX_ADVANCE_NONCE } from './constants';
 import { slotPda, vaultPda } from './pdas';
 import {
@@ -313,11 +314,4 @@ export function verifyVoucher(
     amount,
     rawTransaction: new Uint8Array(raw),
   };
-}
-
-function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
-  return diff === 0;
 }

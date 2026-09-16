@@ -24,6 +24,12 @@ export interface Ledger {
   pending: PendingVoucher[];
   ownerPubkey?: string;
   lastSyncAt?: string;
+  /**
+   * What the last sync found. Persisted, not just returned, because the banknotes this
+   * phone cannot spend are real money and the user has to keep seeing them — not only
+   * in the second after a load, which is where the number used to die.
+   */
+  lastSyncReport?: SyncReport;
 }
 
 const EMPTY: Ledger = { slots: [], pending: [] };
@@ -63,6 +69,23 @@ export function offlineBalance(ledger: Ledger): bigint {
   return availableNotes(ledger).reduce((acc, s) => acc + BigInt(s.amount), 0n);
 }
 
+/**
+ * Billetes que existen en la cadena y que este movil NO puede gastar.
+ *
+ * Sale del ultimo informe de sincronizacion, no de `slots`, y a proposito: un billete
+ * asi nunca se cachea como slot, porque cachearlo seria ofrecer para pagar un dinero
+ * que este telefono no puede mover. Pero tiene que verse — es dinero real, bloqueado —
+ * y por eso el recuento viaja en el informe.
+ */
+export function unspendableNotes(ledger: Ledger): { count: number; amount: bigint } {
+  const report = ledger.lastSyncReport;
+  if (!report) return { count: 0, amount: 0n };
+  return {
+    count: report.foreign + report.broken,
+    amount: BigInt(report.unspendable ?? '0'),
+  };
+}
+
 /** Elige el billete mas pequeño que cubra el importe. */
 export function selectNote(ledger: Ledger, amount: bigint): CachedSlot | undefined {
   return availableNotes(ledger).find((s) => BigInt(s.amount) >= amount);
@@ -75,6 +98,8 @@ export interface SyncReport {
   foreign: number;
   /** Open on chain but whose nonce this key cannot advance. Unspendable; need reclaim. */
   broken: number;
+  /** Locked in the `foreign` and `broken` ones, minor units. A string: this is JSON. */
+  unspendable: string;
 }
 
 /**
@@ -99,7 +124,8 @@ export function mergeChainSlots(
   deviceKey: string,
   now: string = new Date().toISOString(),
 ): { ledger: Ledger; report: SyncReport } {
-  const report: SyncReport = { spendable: 0, foreign: 0, broken: 0 };
+  const report: SyncReport = { spendable: 0, foreign: 0, broken: 0, unspendable: '0' };
+  let unspendable = 0n;
   const local = new Map(
     ledger.slots.filter((s) => s.owner === owner).map((s) => [s.nonceAccount, s]),
   );
@@ -108,10 +134,12 @@ export function mergeChainSlots(
   for (const c of chain) {
     if (c.authorizedSigner.toBase58() !== deviceKey) {
       report.foreign++;
+      unspendable += c.amount;
       continue;
     }
     if (!c.nonceValue || !c.nonceAuthorityMatches) {
       report.broken++;
+      unspendable += c.amount;
       continue;
     }
     report.spendable++;
@@ -141,11 +169,14 @@ export function mergeChainSlots(
         : s,
   );
 
+  report.unspendable = unspendable.toString();
+
   return {
     ledger: {
       ...ledger,
       ownerPubkey: owner,
       lastSyncAt: now,
+      lastSyncReport: report,
       slots: [
         ...ledger.slots.filter((s) => s.owner !== owner),
         ...fromChain,
