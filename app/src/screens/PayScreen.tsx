@@ -4,10 +4,10 @@ import { PublicKey } from '@solana/web3.js';
 import { buildVoucher } from '@noncepayment/sdk';
 
 import { Ledger, selectNote, updateLedger } from '../store/ledger';
-import { DeviceKeyError } from '../store/deviceKey';
 import type { DeviceKeyState } from '../store/useDeviceKey';
 import { enqueueVoucher } from '../net/settlement';
-import { bestTransport } from '../transport';
+import { bestTransport, stopCardEmulation } from '../transport';
+import { explainDeviceKeyError } from '../ui/errors';
 import { formatUsdc, parseUsdc } from '../ui/format';
 import { theme, spacing } from '../ui/theme';
 
@@ -53,6 +53,10 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
       setTransportLabel(transport.label);
       const payload = Uint8Array.from(Buffer.from(JSON.stringify(envelope), 'utf8'));
       await transport.send(payload);
+      // Immediately, not on leaving the screen. A voucher names one recipient and one
+      // nonce, so there is nothing to gain by staying readable — and plenty to lose:
+      // whatever is left emulating outlives the process.
+      await transport.stop();
 
       // 4. Marcar el billete como gastado y guardar copia para reintentar liquidacion.
       await updateLedger((l) => ({
@@ -72,7 +76,8 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
 
       setPhase('done');
     } catch (e) {
-      setError(explain(e));
+      await stopCardEmulation().catch(() => undefined);
+      setError(explainDeviceKeyError(e, 'Pago cancelado: no se ha confirmado la identidad.'));
       setPhase('amount');
     }
   }
@@ -139,35 +144,6 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
       </Pressable>
     </View>
   );
-}
-
-/**
- * What went wrong, said in terms of what to do about it.
- *
- * The device key has failure modes that are not failures — a cancelled fingerprint is a
- * decision — and one that is genuinely serious: a key Android has destroyed. They read
- * very differently to somebody standing at a counter, so they are worded very
- * differently. Anything else keeps its own text.
- */
-function explain(e: unknown): string {
-  if (e instanceof DeviceKeyError) {
-    switch (e.code) {
-      case 'CANCELLED':
-        return 'Pago cancelado: no se ha confirmado la identidad.';
-      case 'NO_KEY':
-        return 'Este movil todavia no tiene clave de pago. Creala en la pantalla principal.';
-      case 'INVALIDATED':
-      case 'MISMATCH':
-        return 'La clave de pago de este movil ya no sirve. Vuelve atras para generar una nueva.';
-      case 'BIOMETRICS_GONE':
-        return 'Ya no hay biometria configurada en el movil, asi que no se puede firmar.';
-      case 'BUSY':
-        return 'Ya hay una confirmacion abierta. Terminala y vuelve a intentarlo.';
-      default:
-        return e.message;
-    }
-  }
-  return String((e as any)?.message ?? e);
 }
 
 const styles = StyleSheet.create({

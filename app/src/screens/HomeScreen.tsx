@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Ledger, availableNotes, unspendableNotes } from '../store/ledger';
+import { Ledger, availableNotes, receivedBalance, unspendableNotes } from '../store/ledger';
 import { DeviceKeyCard } from '../ui/DeviceKeyCard';
+import { ReceivedCard } from '../ui/ReceivedCard';
 import { WalletCard } from '../ui/WalletCard';
 import { formatUsdc, shortKey } from '../ui/format';
 import { theme, spacing } from '../ui/theme';
@@ -54,6 +55,7 @@ export function HomeScreen(props: Props) {
 
   const notes = availableNotes(props.ledger);
   const stuck = unspendableNotes(props.ledger);
+  const received = receivedBalance(props.ledger);
   const pending = props.ledger.pending.filter((p) => !p.settledSignature);
   const canPay = notes.length > 0 && identity !== null;
   // Loading names the device key as the signer of every banknote, so it has to exist
@@ -111,6 +113,19 @@ export function HomeScreen(props: Props) {
           </Text>
         </Pressable>
       </View>
+
+      {received > 0n && (
+        <>
+          <Text style={styles.section}>Cobrado</Text>
+          <ReceivedCard
+            amount={received}
+            wallet={props.wallet}
+            deviceKey={props.deviceKey}
+            online={props.online}
+            onDone={props.onRefresh}
+          />
+        </>
+      )}
 
       <Text style={styles.section}>Billetes</Text>
       {notes.length === 0 ? (

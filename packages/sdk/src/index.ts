@@ -6,3 +6,4 @@ export * from './voucher';
 export * from './load';
 export * from './slots';
 export * from './settle';
+export * from './withdraw';

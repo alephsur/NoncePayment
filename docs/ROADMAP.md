@@ -148,7 +148,19 @@ Ugly but working. No polish here.
 - [ ] Day 13 — **Pay**: `buildVoucher()` offline + transmission over **NFC in two taps**
       (the recipient emulates its address, the payer reads it, signs, and emulates the
       voucher back), with **QR as the fallback** for phones without NFC
+      — **the second tap already works between two real phones**: $1 paid Seeker → Nord 2,
+      verified offline by the recipient and [settled on
+      devnet](https://solscan.io/tx/3rF24B3npw3bb6w3zC7UBfA4vnXwGifvwoxJBfNAsjV5BYF42tV3iwxZRgzWmoSX38ecy67xB67SZN9BDNpxwBYW?cluster=devnet).
+      The recipient's address is still typed in; that is what the first tap replaces
+      — the transport still declared the pre-spike 255 B handshake budget, so it refused
+      a 1025 B voucher before switching the antenna on. Spike 03's answer had never
+      reached the code
 - [ ] Day 14 — **Receive**: `verifyVoucher()` offline + verification levels
+      — **the way out, which no plan had**: money received is not a banknote, it is plain
+      USDC in the device key's token account, and the private key never leaves the
+      Keystore — so without an in-app withdrawal that money can never move again. Written
+      (`withdraw.ts`, wallet pays the fee so a charge-only phone never needs SOL); the
+      two-signature path is not yet exercised on hardware
 - [ ] Day 15 — Settlement queue + background task
 - [ ] Day 16 — **Freed up** (NFC already works end to end). Buffer first; then polish the
       tap gesture — timing, haptics, what each screen says between the two taps — because

@@ -30,6 +30,13 @@ export interface Ledger {
    * in the second after a load, which is where the number used to die.
    */
   lastSyncReport?: SyncReport;
+  /**
+   * USDC cobrado: lo que hay en la cuenta de tokens de la clave de dispositivo, en
+   * unidades minimas. Cacheado para que se vea tambien sin cobertura — es dinero que
+   * entro por un pago y el movil no puede quedarse callado sobre el solo porque no haya
+   * red. Un string, que esto es JSON.
+   */
+  receivedUsdc?: string;
 }
 
 const EMPTY: Ledger = { slots: [], pending: [] };
@@ -84,6 +91,16 @@ export function unspendableNotes(ledger: Ledger): { count: number; amount: bigin
     count: report.foreign + report.broken,
     amount: BigInt(report.unspendable ?? '0'),
   };
+}
+
+/**
+ * USDC cobrado que vive en la clave de dispositivo.
+ *
+ * No es efectivo offline y por eso no suma al saldo grande de la home: es USDC normal y
+ * corriente, y moverlo exige red. Pero es dinero del usuario y tiene que verse.
+ */
+export function receivedBalance(ledger: Ledger): bigint {
+  return BigInt(ledger.receivedUsdc ?? '0');
 }
 
 /** Elige el billete mas pequeño que cubra el importe. */

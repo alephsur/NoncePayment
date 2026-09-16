@@ -56,9 +56,10 @@ where a normal one expires after about a minute.
 | BLE transport | ⏸ optional — NFC carries the whole voucher, so the demo does not depend on it |
 | NFC transport | ✅ **carries a whole signed voucher** — 1055 B, 11/11 reads both ways, OnePlus Nord 2 ↔ Seeker |
 | MWA: connect, reauthorize, balance | ✅ **working on a real Seeker** |
-| Device key: generate, store, biometric gate | ✅ written — Keystore-bound, not yet exercised on hardware |
+| Device key: generate, store, biometric gate | ✅ **exercised on hardware** — the `Pagar $1.00` prompt signed a real payment |
 | Load banknotes (MWA → nonces + `open_slot`, synced from chain) | ✅ **done on a real Seeker**, through Seed Vault, read back from chain |
-| Pay / Receive screens | ✅ scaffolding ready |
+| **Pay phone to phone over NFC** | ✅ **$1 Seeker → Nord 2, one tap**, verified offline and settled on devnet |
+| Withdraw received USDC to the wallet | ✅ written — two signatures, wallet pays the fee; not yet exercised on hardware |
 | Background settlement queue | ✅ written |
 | `.skr` domains (SKR bonus) | ⬜ day 18 |
 

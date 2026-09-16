@@ -3,9 +3,10 @@ import { AppState, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react
 import { PublicKey } from '@solana/web3.js';
 
 import { useDeviceKey } from './store/useDeviceKey';
-import { readLedger, offlineBalance, Ledger } from './store/ledger';
+import { readLedger, offlineBalance, updateLedger, Ledger } from './store/ledger';
 import { registerSettlementTask, drainSettlementQueue, isOnline } from './net/settlement';
-import { syncLedgerWithChain } from './net/loading';
+import { readReceivedUsdc, syncLedgerWithChain } from './net/loading';
+import { stopCardEmulation } from './transport';
 import { HomeScreen } from './screens/HomeScreen';
 import { useWallet } from './wallet/useWallet';
 import { theme } from './ui/theme';
@@ -40,11 +41,19 @@ export default function App() {
       const nowOnline = await isOnline();
       setOnline(nowOnline);
 
-      if (nowOnline && owner && self) {
+      if (nowOnline && self) {
         try {
-          const synced = await syncLedgerWithChain(new PublicKey(owner), new PublicKey(self));
-          setLedger(synced.ledger);
-          refreshWallet.current();
+          if (owner) {
+            const synced = await syncLedgerWithChain(new PublicKey(owner), new PublicKey(self));
+            setLedger(synced.ledger);
+            refreshWallet.current();
+            return;
+          }
+          // No wallet connected — a phone that only ever charges never needs one. The
+          // banknotes belong to an owner and there are none to read, but the USDC this
+          // key has been paid is still real and still has to show up.
+          const received = await readReceivedUsdc(new PublicKey(self));
+          setLedger(await updateLedger((l) => ({ ...l, receivedUsdc: received.toString() })));
           return;
         } catch (e) {
           console.warn('[ledger] sync con la cadena fallido:', e);
@@ -55,6 +64,15 @@ export default function App() {
       setSyncing(false);
     }
   }, [owner, self]);
+
+  /**
+   * Nothing should be emulating a card at launch. See stopCardEmulation(): the library
+   * restores the previous run's tag on its own, so without this the phone can be serving
+   * an old voucher before the user has touched anything.
+   */
+  useEffect(() => {
+    stopCardEmulation().catch((e) => console.warn('[nfc] no se pudo apagar la emulacion:', e));
+  }, []);
 
   /** On launch, and again whenever the owner or the device key changes. */
   useEffect(() => {

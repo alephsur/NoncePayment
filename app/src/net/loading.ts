@@ -10,6 +10,7 @@
  * and "the app wrote it down" harmless — the banknotes turn up on the next launch.
  */
 import { PublicKey } from '@solana/web3.js';
+import { getAccount, getAssociatedTokenAddressSync } from '@solana/spl-token';
 import {
   NOTES_PER_TRANSACTION,
   USDC_MINT_DEVNET,
@@ -40,20 +41,42 @@ export interface LoadResult {
   report: SyncReport;
 }
 
-/** Re-reads every banknote of `owner` from chain and folds it into the ledger. */
+/**
+ * Re-reads every banknote of `owner` from chain and folds it into the ledger.
+ *
+ * It also reads what the device key itself holds in USDC. That is money received from
+ * payments — it lands in the recipient's token account, not in a banknote — and until
+ * this was read the phone had no way to know it existed: a payment could arrive, confirm
+ * on chain, and the home would go on saying $0.
+ */
 export async function syncLedgerWithChain(
   owner: PublicKey,
   deviceKey: PublicKey,
 ): Promise<{ ledger: Ledger; report: SyncReport }> {
-  const chain = await fetchOwnerSlots(connection(), owner);
+  const conn = connection();
+  const [chain, received] = await Promise.all([
+    fetchOwnerSlots(conn, owner),
+    readReceivedUsdc(deviceKey),
+  ]);
   const merged = mergeChainSlots(
     await readLedger(),
     chain,
     owner.toBase58(),
     deviceKey.toBase58(),
   );
-  await writeLedger(merged.ledger);
-  return merged;
+  const ledger = { ...merged.ledger, receivedUsdc: received.toString() };
+  await writeLedger(ledger);
+  return { ledger, report: merged.report };
+}
+
+/** USDC held by the device key. Zero, not an error, when it has no token account yet. */
+export async function readReceivedUsdc(deviceKey: PublicKey): Promise<bigint> {
+  const ata = getAssociatedTokenAddressSync(LOAD_MINT, deviceKey);
+  try {
+    return (await getAccount(connection(), ata, 'confirmed')).amount;
+  } catch {
+    return 0n;
+  }
 }
 
 export interface LoadCost {

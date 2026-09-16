@@ -1,16 +1,11 @@
 /**
  * NFC transport (HCE). The "wow" moment of the video.
  *
- * ================== READ THIS BEFORE TOUCHING ANYTHING ==================
- * This is the MOST FRAGILE component in the project, and it has an expiry date:
- *
- *   HARD RULE FROM THE ROADMAP: if on day 4 this does not work between two real phones,
- *   the file is deleted, it is dropped from the transport selector, and we carry on with
- *   BLE + QR. No "just one more day". See docs/ROADMAP.md, phase 0.
- *
- * That is why NFC does NOT carry the voucher: only the handshake. If it goes, all we lose
- * is the tap gesture, not the functionality.
- * ========================================================================
+ * It came with an expiry date — the day-4 hard rule: if it did not move 32 bytes between
+ * two real phones it was to be deleted and the plan continued on BLE + QR. **It passed,
+ * and by a distance**: a whole signed voucher of 1055 B, 11 reads out of 11, in both
+ * directions, OnePlus Nord 2 ↔ Seeker. So it carries the payment, not just a handshake,
+ * and BLE came off the critical path. See docs/SPIKE-RESULTS.md, spike 03.
  *
  * Android killed Android Beam in Android 10, so phone-to-phone today means one side in
  * HCE (emulating a card) and the other in reader mode.
@@ -30,8 +25,8 @@ export class NfcTransport implements Transport {
   readonly maxPayload: number;
 
   /**
-   * `maxPayload` defaults to the handshake budget. Spike 03 raises it to find out whether
-   * a whole voucher fits: if it does, this default is what changes.
+   * `maxPayload` defaults to a whole voucher's worth. That is what spike 03 changed: the
+   * old default was the 255 B handshake the pre-spike design assumed was the ceiling.
    */
   constructor(options: { maxPayload?: number } = {}) {
     this.maxPayload = options.maxPayload ?? MAX_NFC_BYTES;
@@ -63,8 +58,8 @@ export class NfcTransport implements Transport {
   async send(payload: Uint8Array, signal?: AbortSignal): Promise<void> {
     if (payload.length > this.maxPayload) {
       throw new Error(
-        `El NFC solo lleva el handshake (${this.maxPayload}B), no el voucher. ` +
-          `Recibidos ${payload.length}B.`,
+        `El pago no cabe en un tap: ${payload.length}B para un presupuesto de ` +
+          `${this.maxPayload}B. Usa el QR.`,
       );
     }
 
@@ -169,6 +164,23 @@ export class NfcTransport implements Transport {
       /* module not linked yet */
     }
   }
+}
+
+/**
+ * Apaga cualquier emulacion de tarjeta, tambien la que dejo otra ejecucion.
+ *
+ * `react-native-hce` guarda en SharedPreferences tanto el contenido de la etiqueta como
+ * su flag `enabled`, y vuelve a levantar el servicio por su cuenta. Un voucher que se
+ * quedo emulando sobrevive por tanto a un force-stop, a un reinicio y a dias sin abrir
+ * la app: el telefono sigue ofreciendo un instrumento al portador a cualquier lector que
+ * se acerque, sin nada en pantalla que lo diga.
+ *
+ * No es hipotetico. El 16 de septiembre el Seeker seguia sirviendo un voucher del spike
+ * del dia 14 — y lo que leyo el otro movil en la primera prueba de pago fue eso, no el
+ * pago. Por eso esto se llama al arrancar, no solo al salir de la pantalla de pago.
+ */
+export async function stopCardEmulation(): Promise<void> {
+  await new NfcTransport().stop();
 }
 
 export function encodeHandshake(h: NfcHandshake): Uint8Array {

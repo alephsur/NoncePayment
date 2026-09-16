@@ -1,13 +1,14 @@
 /**
  * Abstraccion de transporte.
  *
- * Tres capas, deliberadamente. La estrategia esta explicada en docs/REFERENCE.md §5:
- * el NFC es el momento "wow" del video pero es lo mas fragil, asi que NO lleva el
- * voucher — lleva solo un handshake de 32 bytes. El BLE hace el intercambio real y el
- * QR es el fallback que nunca falla.
+ * El diseño original daba por hecho que el NFC solo podia llevar un handshake y que el
+ * dinero tendria que ir por BLE. **El spike 03 lo desmintio**: un voucher entero de
+ * 1055 B cruzo 11 veces de 11 entre dos moviles reales, en las dos direcciones. Asi que
+ * el NFC lleva el pago, el BLE queda fuera del camino critico y el QR sigue siendo el
+ * fallback que nunca falla. Ver docs/SPIKE-RESULTS.md, spike 03.
  *
- * Si el spike del dia 4 dice que HCE no tira, se borra nfc.ts y el resto sigue igual.
- * Esa es toda la razon de ser de esta interfaz.
+ * La interfaz existe para poder perder una capa sin que se caiga nada. Eso no ha
+ * cambiado: sigue siendo lo que permitio que el BLE se bajara del plan sin tocar nada.
  */
 export type TransportId = 'nfc' | 'ble' | 'qr';
 
@@ -38,9 +39,10 @@ export interface Transport {
 }
 
 /**
- * Handshake que viaja por NFC. 32 bytes de id de sesion + la UUID del servicio BLE.
+ * Handshake que viaja por NFC cuando el transporte real es el BLE.
  *
- * El tap solo dice "soy yo, conectate a este canal". El dinero va por BLE.
+ * Solo lo usa la ruta BLE, que esta fuera del camino critico desde el spike 03. Un pago
+ * por NFC no pasa por aqui: manda el voucher entero.
  */
 export interface NfcHandshake {
   sessionId: string;
@@ -49,4 +51,13 @@ export interface NfcHandshake {
 }
 
 export const MAX_QR_BYTES = 2300;
-export const MAX_NFC_BYTES = 255;
+
+/**
+ * Presupuesto de un tap.
+ *
+ * Eran 255 B, el tamaño del handshake que el diseño anterior daba por unico posible por
+ * NFC, y eso rechazaba un voucher (1055 B medidos) antes siquiera de encender la antena.
+ * El spike 03 movio ese voucher 11 veces de 11 con un presupuesto de 4096 B; 2048 deja
+ * holgura sin afirmar mas de lo que se probo. Por encima de esto, medir otra vez.
+ */
+export const MAX_NFC_BYTES = 2048;

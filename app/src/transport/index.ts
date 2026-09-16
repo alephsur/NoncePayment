@@ -6,7 +6,7 @@ import { NfcTransport } from './nfc';
 export * from './types';
 export { QrTransport } from './qr';
 export { BleTransport, NONCEPAY_SERVICE_UUID } from './ble';
-export { NfcTransport, encodeHandshake, decodeHandshake } from './nfc';
+export { NfcTransport, encodeHandshake, decodeHandshake, stopCardEmulation } from './nfc';
 
 /**
  * Transportes en orden de preferencia. El QR va el ultimo a proposito: es el que
