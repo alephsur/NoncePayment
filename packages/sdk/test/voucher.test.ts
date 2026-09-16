@@ -8,7 +8,7 @@ const deviceKey = Keypair.generate();
 const recipient = Keypair.generate();
 const attacker = Keypair.generate();
 const nonceAccount = Keypair.generate();
-const mint = new PublicKey('Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr');
+const mint = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');
 
 // Un nonce value es un blockhash (32 bytes base58). Simulamos uno.
 const fakeNonceValue = Keypair.generate().publicKey.toBase58();

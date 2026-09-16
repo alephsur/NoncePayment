@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { PublicKey } from '@solana/web3.js';
 
 import { useDeviceKey } from './store/useDeviceKey';
 import { readLedger, offlineBalance, Ledger } from './store/ledger';
 import { registerSettlementTask, drainSettlementQueue, isOnline } from './net/settlement';
+import { syncLedgerWithChain } from './net/loading';
 import { HomeScreen } from './screens/HomeScreen';
 import { useWallet } from './wallet/useWallet';
 import { theme } from './ui/theme';
@@ -38,6 +40,22 @@ export default function App() {
       .then(async () => setLedger(await readLedger()))
       .catch(() => undefined);
   }, [deviceKey.identity]);
+
+  /**
+   * Re-read the banknotes from chain whenever there is an owner, a key and a network.
+   *
+   * The ledger is a cache of the chain. This is what heals it: a load confirmed while the
+   * app was killed, a banknote reclaimed from another device, a reinstall. Offline it does
+   * nothing, and the cached ledger is exactly what the user can spend.
+   */
+  const owner = wallet.session?.publicKey.toBase58();
+  useEffect(() => {
+    const self = deviceKey.identity?.publicKey;
+    if (!online || !owner || !self) return;
+    syncLedgerWithChain(new PublicKey(owner), self)
+      .then(({ ledger }) => setLedger(ledger))
+      .catch(() => undefined);
+  }, [online, owner, deviceKey.identity]);
 
   if (!ledger || deviceKey.phase === 'loading') {
     return (

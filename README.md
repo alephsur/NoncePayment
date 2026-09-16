@@ -57,6 +57,7 @@ where a normal one expires after about a minute.
 | NFC transport | ✅ **carries a whole signed voucher** — 1055 B, 11/11 reads both ways, OnePlus Nord 2 ↔ Seeker |
 | MWA: connect, reauthorize, balance | ✅ **working on a real Seeker** |
 | Device key: generate, store, biometric gate | ✅ written — Keystore-bound, not yet exercised on hardware |
+| Load banknotes (MWA → nonces + `open_slot`, synced from chain) | ✅ **proven on devnet** by script — not yet through MWA on the phone |
 | Pay / Receive screens | ✅ scaffolding ready |
 | Background settlement queue | ✅ written |
 | `.skr` domains (SKR bonus) | ⬜ day 18 |

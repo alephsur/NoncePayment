@@ -125,7 +125,19 @@ Ugly but working. No polish here.
       go into Android Auto Backup while the Keystore keys do not
       — **pending on the phone:** create the key, watch the prompt, pay with it, then
       enrol a new fingerprint and confirm the app reports the key as destroyed
-- [ ] Day 12 — **Load banknotes**: create nonces + `open_slot` via MWA, cache them
+- [x] Day 12 — **Load banknotes**: create nonces + `open_slot` via MWA, cache them
+      — one wallet approval for up to 8 banknotes, packed **2 per transaction** (measured:
+      987 B for two, 1277 B for three, past the 1232 B limit), with the device-key SOL
+      top-up riding in the first
+      — the ledger is a **cache of the chain**, not the record: a load sends, confirms,
+      then re-reads every slot of the owner from chain, and the same sync runs on launch.
+      A load confirmed while the app was killed turns up on the next open
+      — the sync never flips a banknote the phone already spent back to available, and
+      tells banknotes apart by nonce account, since a closed slot's index gets reused
+      — proven on devnet without the phone by `program/scripts/devnet-load.ts`, which runs
+      the app's exact SDK path with a keypair in place of MWA and then cashes a voucher
+      signed against the nonce value the sync read back. **All checks green**
+      — **pending on the phone:** the same load through Seed Vault's approval sheet
 - [ ] Day 13 — **Pay**: `buildVoucher()` offline + transmission over **NFC in two taps**
       (the recipient emulates its address, the payer reads it, signs, and emulates the
       voucher back), with **QR as the fallback** for phones without NFC

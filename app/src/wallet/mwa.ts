@@ -58,18 +58,42 @@ export async function reconnectWallet(authToken: string): Promise<WalletSession>
 }
 
 /**
- * Firma y envia las transacciones de carga de billetes. ONLINE.
+ * Opens the wallet once, builds the transactions inside that session, and has the
+ * wallet sign and send them. ONLINE.
  *
- * Nota: los keypairs de los nonce accounts tienen que firmar tambien. Se firman
- * localmente ANTES de pasar la transaccion a la wallet (firma parcial).
+ * `build` runs after the wallet has authorised, not before, for two reasons. The
+ * transactions carry a recent blockhash that expires in about a minute, and the user may
+ * sit on the approval sheet for a while — so it is fetched as late as possible. And the
+ * account the wallet returns is the one that will sign: building against a stored
+ * address that the user has since switched away from would produce transactions the
+ * wallet cannot sign.
+ *
+ * A stale token falls back to a full authorize in the same session, so an expired
+ * authorisation costs the user one extra tap instead of an error.
  */
-export async function signAndSendTransactions(
-  authToken: string,
-  transactions: Transaction[],
-): Promise<string[]> {
+export async function signAndSendWithWallet(
+  authToken: string | null,
+  build: (owner: PublicKey) => Promise<Transaction[]>,
+): Promise<{ signatures: string[]; session: WalletSession }> {
   return transact(async (wallet: Web3MobileWallet) => {
-    await wallet.reauthorize({ auth_token: authToken, identity: APP_IDENTITY });
-    return wallet.signAndSendTransactions({ transactions });
+    let auth;
+    try {
+      if (!authToken) throw new Error('no token');
+      auth = await wallet.reauthorize({ auth_token: authToken, identity: APP_IDENTITY });
+    } catch {
+      auth = await wallet.authorize({ chain: CHAIN, identity: APP_IDENTITY });
+    }
+
+    const account = auth.accounts[0];
+    const session: WalletSession = {
+      publicKey: new PublicKey(toBytes(account.address)),
+      authToken: auth.auth_token,
+      label: account.label,
+    };
+
+    const transactions = await build(session.publicKey);
+    const signatures = await wallet.signAndSendTransactions({ transactions });
+    return { signatures, session };
   });
 }
 

@@ -11,8 +11,9 @@ import type { WalletState } from '../wallet/useWallet';
 import { PayScreen } from './PayScreen';
 import { ReceiveScreen } from './ReceiveScreen';
 import { NfcSpikeScreen } from './NfcSpikeScreen';
+import { LoadScreen } from './LoadScreen';
 
-type Tab = 'home' | 'pay' | 'receive' | 'nfc-spike';
+type Tab = 'home' | 'pay' | 'receive' | 'load' | 'nfc-spike';
 
 interface Props {
   ledger: Ledger;
@@ -41,6 +42,9 @@ export function HomeScreen(props: Props) {
   if (tab === 'receive' && identity) {
     return <ReceiveScreen deviceKey={identity.publicKey} onDone={back} />;
   }
+  if (tab === 'load' && identity && props.wallet.session) {
+    return <LoadScreen wallet={props.wallet} deviceKey={identity.publicKey} onDone={back} />;
+  }
   // Spike 03: needs no device key and no banknotes, only NFC.
   if (tab === 'nfc-spike') {
     return <NfcSpikeScreen onDone={back} />;
@@ -49,6 +53,9 @@ export function HomeScreen(props: Props) {
   const notes = availableNotes(props.ledger);
   const pending = props.ledger.pending.filter((p) => !p.settledSignature);
   const canPay = notes.length > 0 && identity !== null;
+  // Loading names the device key as the signer of every banknote, so it has to exist
+  // first; and it is the one step that needs the network.
+  const canLoad = identity !== null && props.online && props.wallet.session !== null;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -113,6 +120,21 @@ export function HomeScreen(props: Props) {
 
       <Text style={styles.section}>Wallet y recarga</Text>
       <WalletCard wallet={props.wallet} online={props.online} />
+      {props.wallet.session && (
+        <Pressable
+          style={[styles.button, canLoad ? styles.primary : styles.disabled, styles.loadButton]}
+          onPress={() => setTab('load')}
+          disabled={!canLoad}
+        >
+          <Text style={canLoad ? styles.primaryText : styles.disabledText}>
+            {!props.online
+              ? 'Cargar billetes · sin red'
+              : !identity
+                ? 'Cargar billetes · crea antes la clave'
+                : 'Cargar billetes'}
+          </Text>
+        </Pressable>
+      )}
 
       <Text style={styles.section}>Dispositivo</Text>
       <DeviceKeyCard state={props.deviceKey} online={props.online} />
@@ -156,6 +178,7 @@ const styles = StyleSheet.create({
   disabledText: { color: theme.textMuted, fontSize: 16, fontWeight: '600' },
   primaryText: { color: '#04120C', fontSize: 16, fontWeight: '700' },
   secondary: { backgroundColor: theme.surfaceAlt, borderWidth: 1, borderColor: theme.border },
+  loadButton: { flex: 0, marginBottom: spacing(1) },
   secondaryText: { color: theme.text, fontSize: 16, fontWeight: '600' },
   section: {
     color: theme.textMuted,

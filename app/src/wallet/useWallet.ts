@@ -127,7 +127,7 @@ export function useWallet(online: boolean): WalletState {
  * something that says what to do; anything else keeps its original text, because a
  * vague message is worse than an ugly one when you are debugging on a phone.
  */
-function explain(e: any): string {
+export function explain(e: any): string {
   const raw = String(e?.message ?? e);
   if (/no.*wallet|not.*installed|ActivityNotFound|NoWalletFound/i.test(raw)) {
     return 'No hay ninguna wallet compatible instalada. Instala Phantom, Solflare o usa Seed Vault.';

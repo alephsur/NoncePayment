@@ -58,7 +58,9 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
       await updateLedger((l) => ({
         ...l,
         slots: l.slots.map((s) =>
-          s.index === note.index ? { ...s, status: 'spent_pending_settlement' } : s,
+          // By nonce account, not index: a closed banknote's index gets reused by later
+          // loads, and the history entry must not be marked spent along with the new one.
+          s.nonceAccount === note.nonceAccount ? { ...s, status: 'spent_pending_settlement' } : s,
         ),
       }));
       await enqueueVoucher({

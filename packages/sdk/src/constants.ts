@@ -1,13 +1,20 @@
 import { PublicKey } from '@solana/web3.js';
 
-/** Comes from `anchor keys sync`. Not deployed to devnet yet (roadmap day 9). */
+/** Comes from `anchor keys sync`. Deployed to devnet on roadmap day 9. */
 export const PROGRAM_ID = new PublicKey(
   'CwwpVy2fL2NoVYS1wZgvhfpumoCCQdmZd8194uKRpDo7',
 );
 
-/** USDC devnet. En mainnet: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v */
+/**
+ * USDC devnet — Circle's own mint, the one <https://faucet.circle.com> dispenses.
+ * En mainnet: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+ *
+ * Es el mint que tiene que tener la wallet para poder cargar billetes. El otro USDC de
+ * devnet que circula (Gh9Zw...KtKJr, de spl-token-faucet.com) es un token distinto y no
+ * sirve: un billete cargado con uno no se puede cobrar con el otro.
+ */
 export const USDC_MINT_DEVNET = new PublicKey(
-  'Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr',
+  '4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU',
 );
 
 export const USDC_DECIMALS = 6;
