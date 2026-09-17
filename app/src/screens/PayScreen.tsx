@@ -1,4 +1,14 @@
-import React, { useEffect, useState } from 'react';
+/**
+ * Pagar: dos toques y ni una tecla.
+ *
+ * El primero lee la direccion del que cobra, el segundo le entrega el pago firmado. En
+ * medio, dos cosas que no son negociables: el pagador VE a quien esta pagando, y pone su
+ * huella. Firmar a ciegas lo que diga un tap seria el fallo de seguridad del gesto.
+ *
+ * Escribir la direccion a mano sigue ahi, y no como reliquia: es la salida para un movil
+ * sin NFC y la unica manera de pagar a alguien que no esta delante.
+ */
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { PublicKey } from '@solana/web3.js';
 import { buildVoucher } from '@noncepayment/sdk';
@@ -6,9 +16,9 @@ import { buildVoucher } from '@noncepayment/sdk';
 import { Ledger, selectNote, updateLedger } from '../store/ledger';
 import type { DeviceKeyState } from '../store/useDeviceKey';
 import { enqueueVoucher } from '../net/settlement';
-import { bestTransport, stopCardEmulation } from '../transport';
+import { bestTransport, decodeAddressTag, stopCardEmulation } from '../transport';
 import { explainDeviceKeyError } from '../ui/errors';
-import { formatUsdc, parseUsdc } from '../ui/format';
+import { formatUsdc, parseUsdc, shortKey } from '../ui/format';
 import { theme, spacing } from '../ui/theme';
 
 interface Props {
@@ -17,32 +27,60 @@ interface Props {
   onDone: () => void;
 }
 
-type Phase = 'amount' | 'recipient' | 'signing' | 'transmitting' | 'done';
+type Phase = 'amount' | 'reading' | 'confirm' | 'signing' | 'transmitting' | 'done';
 
 export function PayScreen({ ledger, deviceKey, onDone }: Props) {
   const [phase, setPhase] = useState<Phase>('amount');
   const [amountText, setAmountText] = useState('');
   const [recipientText, setRecipientText] = useState('');
+  const [manual, setManual] = useState(false);
+  const [target, setTarget] = useState<{ key: PublicKey; label?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [transportLabel, setTransportLabel] = useState('');
 
-  // Whatever happens — paid, cancelled, or backed out of mid-tap — nothing keeps
-  // emulating once this screen is gone.
+  const abort = useRef<AbortController | null>(null);
+
+  // Paid, cancelled, or backed out of mid-tap: nothing keeps emulating or reading once
+  // this screen is gone.
   useEffect(() => () => {
+    abort.current?.abort();
     stopCardEmulation().catch(() => undefined);
   }, []);
 
-  async function pay() {
+  /** Importe y billete, validados antes de tocar nada mas. */
+  function prepare(): bigint {
+    const amount = parseUsdc(amountText);
+    if (amount <= 0n) throw new Error('Importe invalido');
+    if (!selectNote(ledger, amount)) {
+      throw new Error('No tienes ningun billete que cubra ese importe');
+    }
+    return amount;
+  }
+
+  /** Tap 1: leer a quien se paga. */
+  async function readRecipient() {
     setError(null);
     try {
-      const amount = parseUsdc(amountText);
-      if (amount <= 0n) throw new Error('Importe invalido');
+      prepare();
+      abort.current = new AbortController();
+      setPhase('reading');
+      const transport = await bestTransport();
+      setTransportLabel(transport.label);
+      const tag = decodeAddressTag(await transport.receive(abort.current.signal));
+      setTarget({ key: new PublicKey(tag.recipient), label: tag.label });
+      setPhase('confirm');
+    } catch (e) {
+      setError(explainDeviceKeyError(e, 'Pago cancelado.'));
+      setPhase('amount');
+    }
+  }
 
-      // TODO(dia 17-21): resolver dominios .skr aqui. Es el bonus SKR de $10.000.
-      const recipient = new PublicKey(recipientText.trim());
-
-      const note = selectNote(ledger, amount);
-      if (!note) throw new Error('No tienes ningun billete que cubra ese importe');
+  /** Tap 2: firmar y entregar. */
+  async function pay(recipient: PublicKey) {
+    setError(null);
+    try {
+      const amount = prepare();
+      const note = selectNote(ledger, amount)!;
 
       // 1. Barrera biometrica. Este es el unico momento en que se toca la clave, y el
       //    titulo del aviso del sistema dice lo que se esta autorizando: si alguien te
@@ -87,19 +125,89 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
     } catch (e) {
       await stopCardEmulation().catch(() => undefined);
       setError(explainDeviceKeyError(e, 'Pago cancelado: no se ha confirmado la identidad.'));
-      setPhase('amount');
+      setPhase(target ? 'confirm' : 'amount');
     }
+  }
+
+  function payTyped() {
+    setError(null);
+    try {
+      // TODO(dia 18): resolver dominios .skr aqui. Es el bonus SKR de $10.000.
+      pay(new PublicKey(recipientText.trim()));
+    } catch {
+      setError('Esa direccion no es valida');
+    }
+  }
+
+  if (phase === 'reading') {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.tapNumber}>1 / 2</Text>
+        <ActivityIndicator color={theme.accent} size="large" />
+        <Text style={styles.centerText}>Acerca los moviles — {transportLabel}</Text>
+        <Text style={styles.hint}>
+          Manten los moviles juntos un segundo: este primer toque solo trae la direccion
+          de quien cobra. Todavia no se paga nada.
+        </Text>
+        <Pressable
+          style={styles.ghost}
+          onPress={() => {
+            abort.current?.abort();
+            setPhase('amount');
+          }}
+        >
+          <Text style={styles.ghostText}>Cancelar</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (phase === 'confirm' && target) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.label}>Vas a pagar</Text>
+        <Text style={styles.confirmAmount}>${formatUsdc(parseUsdc(amountText || '0'))}</Text>
+        <Text style={styles.centerText}>a</Text>
+        <Text style={styles.confirmWho}>{target.label ?? shortKey(target.key.toBase58())}</Text>
+        <Text style={styles.confirmAddress}>{target.key.toBase58()}</Text>
+        <Text style={styles.hint}>
+          Comprueba que es quien crees antes de seguir: esta direccion la ha dado el otro
+          movil y es la que se quedara con el dinero.
+        </Text>
+
+        {error && <Text style={styles.error}>{error}</Text>}
+
+        <Pressable style={styles.primary} onPress={() => pay(target.key)}>
+          <Text style={styles.primaryText}>Pagar con huella</Text>
+        </Pressable>
+        <Pressable
+          style={styles.ghost}
+          onPress={() => {
+            setTarget(null);
+            setPhase('amount');
+          }}
+        >
+          <Text style={styles.ghostText}>Cancelar</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   if (phase === 'signing' || phase === 'transmitting') {
     return (
       <View style={styles.center}>
+        {phase === 'transmitting' && <Text style={styles.tapNumber}>2 / 2</Text>}
         <ActivityIndicator color={theme.accent} size="large" />
         <Text style={styles.centerText}>
           {phase === 'signing'
             ? 'Firmando sin conexion...'
-            : `Acerca los moviles — ${transportLabel}`}
+            : `Vuelve a acercar los moviles — ${transportLabel}`}
         </Text>
+        {phase === 'transmitting' && (
+          <Text style={styles.hint}>
+            Ahora viaja el pago. Manten los moviles pegados hasta que el otro lo confirme.
+          </Text>
+        )}
       </View>
     );
   }
@@ -136,22 +244,39 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
         keyboardType="decimal-pad"
         placeholder="0.00"
         placeholderTextColor={theme.textMuted}
+        autoFocus
       />
 
-      <Text style={styles.label}>Destinatario</Text>
-      <TextInput
-        style={styles.input}
-        value={recipientText}
-        onChangeText={setRecipientText}
-        autoCapitalize="none"
-        placeholder="direccion o david.skr"
-        placeholderTextColor={theme.textMuted}
-      />
+      {manual && (
+        <>
+          <Text style={styles.label}>Destinatario</Text>
+          <TextInput
+            style={styles.input}
+            value={recipientText}
+            onChangeText={setRecipientText}
+            autoCapitalize="none"
+            placeholder="direccion o david.skr"
+            placeholderTextColor={theme.textMuted}
+          />
+        </>
+      )}
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Pressable style={styles.primary} onPress={pay}>
-        <Text style={styles.primaryText}>Firmar y enviar</Text>
+      {manual ? (
+        <Pressable style={styles.primary} onPress={payTyped}>
+          <Text style={styles.primaryText}>Firmar y enviar</Text>
+        </Pressable>
+      ) : (
+        <Pressable style={styles.primary} onPress={readRecipient}>
+          <Text style={styles.primaryText}>Acercar para pagar</Text>
+        </Pressable>
+      )}
+
+      <Pressable style={styles.ghost} onPress={() => setManual((m) => !m)}>
+        <Text style={styles.ghostText}>
+          {manual ? 'Pagar acercando los moviles' : 'Escribir la direccion a mano'}
+        </Text>
       </Pressable>
       <Pressable style={styles.ghost} onPress={onDone}>
         <Text style={styles.ghostText}>Cancelar</Text>
@@ -162,6 +287,32 @@ export function PayScreen({ ledger, deviceKey, onDone }: Props) {
 
 const styles = StyleSheet.create({
   container: { padding: spacing(3), flex: 1 },
+  tapNumber: {
+    color: theme.accent,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginBottom: spacing(2),
+  },
+  hint: {
+    color: theme.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
+    marginTop: spacing(2),
+    paddingHorizontal: spacing(2),
+  },
+  confirmAmount: { color: theme.text, fontSize: 48, fontWeight: '700', letterSpacing: -1 },
+  confirmWho: { color: theme.text, fontSize: 20, fontWeight: '700', marginTop: spacing(0.5) },
+  confirmAddress: {
+    color: theme.textMuted,
+    fontSize: 11,
+    fontFamily: 'monospace',
+    textAlign: 'center',
+    marginTop: spacing(1),
+    paddingHorizontal: spacing(2),
+  },
+
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing(4) },
   retryHint: {
     color: theme.warning,

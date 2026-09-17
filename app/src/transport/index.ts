@@ -4,6 +4,7 @@ import { BleTransport } from './ble';
 import { NfcTransport } from './nfc';
 
 export * from './types';
+export * from './address';
 export { QrTransport } from './qr';
 export { BleTransport, NONCEPAY_SERVICE_UUID } from './ble';
 export { NfcTransport, encodeHandshake, decodeHandshake, stopCardEmulation } from './nfc';

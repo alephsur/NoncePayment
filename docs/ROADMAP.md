@@ -145,7 +145,7 @@ Ugly but working. No polish here.
       "the one the tests could not catch"
       — the home now re-syncs on launch, on coming back to the foreground and on pull, and
       says out loud how much is locked under a previous device key
-- [ ] Day 13 — **Pay**: `buildVoucher()` offline + transmission over **NFC in two taps**
+- [x] Day 13 — **Pay**: `buildVoucher()` offline + transmission over **NFC in two taps**
       (the recipient emulates its address, the payer reads it, signs, and emulates the
       voucher back), with **QR as the fallback** for phones without NFC
       — **the second tap already works between two real phones**: $1 paid Seeker → Nord 2,
@@ -155,6 +155,15 @@ Ugly but working. No polish here.
       — the transport still declared the pre-spike 255 B handshake budget, so it refused
       a 1025 B voucher before switching the antenna on. Spike 03's answer had never
       reached the code
+      — **both taps now work on two real phones**: the recipient emulates a 76 B address
+      tag, the payer reads it, confirms **who** it is paying, signs behind the fingerprint
+      and emulates the voucher back. No keyboard anywhere in the gesture
+      — the address tag is unsigned on purpose: it is a destination, not an authorisation,
+      and what protects it is the payer seeing it before the fingerprint. Typing an
+      address by hand stays, for a phone with no NFC
+      — and the anti-double-spend guarantee was watched working outside a test: three
+      vouchers signed against banknotes already redeemed came back `Blockhash not found`,
+      dead forever. Settlement now says so instead of retrying ten times
 - [ ] Day 14 — **Receive**: `verifyVoucher()` offline + verification levels
       — **the way out, which no plan had**: money received is not a banknote, it is plain
       USDC in the device key's token account, and the private key never leaves the
@@ -169,6 +178,17 @@ Ugly but working. No polish here.
       a placeholder we do not own. Seed Vault and Jupiter do not ask. Day 28, with the
       signed release — and both certificate fingerprints, debug and release
 - [ ] Day 15 — Settlement queue + background task
+      — **a real defect found on day 13, already fixed**: the queue verified every voucher
+      against this phone's key, including the ones it had SENT, which are addressed to
+      somebody else by definition. So the payer could never settle its own payments —
+      ten attempts, ten "not addressed to me", then silence. Money only moved if the
+      RECIPIENT came online, when the promise is that either side is enough. Five
+      banknotes were sitting spent on the phone and still open on chain
+      — giving up after ten attempts now has a way back: the home says how many gave up
+      and offers a retry, because a long outage should not turn into money with no exit
+      — `Blockhash not found` is told apart from a network failure. For the payer it
+      means that banknote was already cashed; for the recipient it means **the payer
+      double-spent them**, and it says so in those words
 - [ ] Day 16 — **Freed up** (NFC already works end to end). Buffer first; then polish the
       tap gesture — timing, haptics, what each screen says between the two taps — because
       that gesture is the shot the video is built around

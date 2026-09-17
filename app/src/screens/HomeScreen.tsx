@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Ledger, availableNotes, receivedBalance, unspendableNotes } from '../store/ledger';
+import { abandonedVouchers, retrySettlement } from '../net/settlement';
 import { DeviceKeyCard } from '../ui/DeviceKeyCard';
 import { ReceivedCard } from '../ui/ReceivedCard';
 import { WalletCard } from '../ui/WalletCard';
@@ -29,6 +30,7 @@ interface Props {
 
 export function HomeScreen(props: Props) {
   const [tab, setTab] = useState<Tab>('home');
+  const [retrying, setRetrying] = useState(false);
 
   // Nothing can be paid or charged without a device key: it is the signer of every
   // voucher and the address a recipient is named against. Until it exists the two
@@ -54,6 +56,7 @@ export function HomeScreen(props: Props) {
   }
 
   const notes = availableNotes(props.ledger);
+  const abandoned = abandonedVouchers(props.ledger.pending);
   const stuck = unspendableNotes(props.ledger);
   const received = receivedBalance(props.ledger);
   const pending = props.ledger.pending.filter((p) => !p.settledSignature);
@@ -184,6 +187,35 @@ export function HomeScreen(props: Props) {
       {pending.length > 0 && (
         <>
           <Text style={styles.section}>Pendiente de liquidar</Text>
+          {abandoned.length > 0 && identity && (
+            <View style={styles.abandoned}>
+              <Text style={styles.abandonedTitle}>
+                {abandoned.length} sin liquidar tras varios intentos
+              </Text>
+              <Text style={styles.abandonedBody}>
+                El dinero sigue reservado en Solana. Mientras el billete siga abierto el
+                pago se puede cobrar, asi que vuelve a intentarlo cuando tengas buena
+                cobertura.
+              </Text>
+              <Pressable
+                style={[styles.retryButton, (!props.online || retrying) && styles.disabled]}
+                disabled={!props.online || retrying}
+                onPress={async () => {
+                  setRetrying(true);
+                  try {
+                    await retrySettlement(identity.publicKey);
+                    await props.onRefresh();
+                  } finally {
+                    setRetrying(false);
+                  }
+                }}
+              >
+                <Text style={props.online ? styles.retryText : styles.disabledText}>
+                  {retrying ? 'Reintentando...' : props.online ? 'Reintentar' : 'Sin red'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
           {pending.map((p, i) => (
             <View key={i} style={[styles.note, styles.notePending]}>
               <Text style={styles.noteAmount}>
@@ -193,6 +225,9 @@ export function HomeScreen(props: Props) {
                 {p.direction === 'received' ? 'Recibido' : 'Enviado'} ·{' '}
                 {p.attempts > 0 ? `${p.attempts} intentos` : 'esperando red'}
               </Text>
+              {p.lastError?.startsWith('DOBLE GASTO') && (
+                <Text style={styles.fraud}>{p.lastError}</Text>
+              )}
             </View>
           ))}
         </>
@@ -239,6 +274,25 @@ const styles = StyleSheet.create({
     borderColor: theme.border,
   },
   notePending: { borderColor: theme.warning },
+  abandoned: {
+    backgroundColor: theme.surface,
+    borderRadius: 12,
+    padding: spacing(2),
+    marginBottom: spacing(1),
+    borderWidth: 1,
+    borderColor: theme.danger,
+  },
+  fraud: { color: theme.danger, fontSize: 12, lineHeight: 17, marginTop: spacing(1), fontWeight: '600' },
+  abandonedTitle: { color: theme.danger, fontSize: 15, fontWeight: '700' },
+  abandonedBody: { color: theme.textMuted, fontSize: 12, lineHeight: 17, marginTop: spacing(1) },
+  retryButton: {
+    backgroundColor: theme.accent,
+    borderRadius: 10,
+    paddingVertical: spacing(1.5),
+    alignItems: 'center',
+    marginTop: spacing(2),
+  },
+  retryText: { color: '#04120C', fontSize: 15, fontWeight: '700' },
   stuck: {
     backgroundColor: theme.surface,
     borderRadius: 12,

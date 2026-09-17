@@ -58,9 +58,9 @@ where a normal one expires after about a minute.
 | MWA: connect, reauthorize, balance | ✅ **working on a real Seeker** |
 | Device key: generate, store, biometric gate | ✅ **exercised on hardware** — the `Pagar $1.00` prompt signed a real payment |
 | Load banknotes (MWA → nonces + `open_slot`, synced from chain) | ✅ **done on a real Seeker**, through Seed Vault, read back from chain |
-| **Pay phone to phone over NFC** | ✅ **$1 Seeker → Nord 2, one tap**, verified offline and settled on devnet |
+| **Pay phone to phone over NFC** | ✅ **two taps, no keyboard** — Seeker ↔ Nord 2, verified offline and settled on devnet |
 | Withdraw received USDC to the wallet | ✅ **$2 moved on a real phone** — two signatures, wallet pays the fee |
-| Background settlement queue | ✅ written |
+| Background settlement queue | ✅ **working both ways** — and a dead voucher is told apart from a retryable one |
 | `.skr` domains (SKR bonus) | ⬜ day 18 |
 
 ---
