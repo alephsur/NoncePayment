@@ -1,8 +1,17 @@
 import React, { useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { Ledger, availableNotes, receivedBalance, unspendableNotes } from '../store/ledger';
 import { abandonedVouchers, retrySettlement } from '../net/settlement';
+import { ReclaimStep, reclaimNotes } from '../net/reclaim';
 import { DeviceKeyCard } from '../ui/DeviceKeyCard';
 import { ReceivedCard } from '../ui/ReceivedCard';
 import { WalletCard } from '../ui/WalletCard';
@@ -16,6 +25,13 @@ import { NfcSpikeScreen } from './NfcSpikeScreen';
 import { LoadScreen } from './LoadScreen';
 
 type Tab = 'home' | 'pay' | 'receive' | 'load' | 'nfc-spike';
+
+const RECLAIM_TEXT: Record<ReclaimStep, string> = {
+  wallet: 'Aprueba el rescate en tu wallet...',
+  sending: 'Enviando a Solana...',
+  confirming: 'Esperando confirmacion...',
+  syncing: 'Actualizando tus billetes...',
+};
 
 interface Props {
   ledger: Ledger;
@@ -31,6 +47,8 @@ interface Props {
 export function HomeScreen(props: Props) {
   const [tab, setTab] = useState<Tab>('home');
   const [retrying, setRetrying] = useState(false);
+  const [reclaiming, setReclaiming] = useState<ReclaimStep | null>(null);
+  const [reclaimError, setReclaimError] = useState<string | null>(null);
 
   // Nothing can be paid or charged without a device key: it is the signer of every
   // voucher and the address a recipient is named against. Until it exists the two
@@ -72,6 +90,10 @@ export function HomeScreen(props: Props) {
   // Loading names the device key as the signer of every banknote, so it has to exist
   // first; and it is the one step that needs the network.
   const canLoad = identity !== null && props.online && props.wallet.session !== null;
+  // Reclaim lo firma la wallet, no la clave del movil — de hecho se usa justo cuando esa
+  // clave ya no sirve. Pero la clave tiene que existir para poder resincronizar despues.
+  const canReclaim =
+    identity !== null && props.online && props.wallet.session !== null && reclaiming === null;
 
   return (
     <ScrollView
@@ -165,9 +187,51 @@ export function HomeScreen(props: Props) {
           </Text>
           <Text style={styles.stuckBody}>
             Se cargaron con una clave de dispositivo anterior, asi que este movil ya no
-            puede firmarlos. El dinero sigue en Solana y sigue siendo tuyo: hay que
-            recuperarlo con red, desde tu wallet.
+            puede firmarlos. El dinero sigue siendo tuyo: recuperalo y volvera a tu
+            wallet, listo para cargarlo otra vez.
           </Text>
+
+          {reclaiming ? (
+            <View style={styles.reclaimWorking}>
+              <ActivityIndicator color={theme.accent} />
+              <Text style={styles.reclaimWorkingText}>{RECLAIM_TEXT[reclaiming]}</Text>
+            </View>
+          ) : (
+            <Pressable
+              style={[styles.retryButton, !canReclaim && styles.disabled]}
+              disabled={!canReclaim}
+              onPress={async () => {
+                setReclaimError(null);
+                try {
+                  await reclaimNotes({
+                    deviceKey: identity!.publicKey,
+                    indexes: stuck.notes.map((n) => n.index),
+                    onStep: setReclaiming,
+                  });
+                  await props.onRefresh();
+                } catch (e: any) {
+                  setReclaimError(String(e?.message ?? e));
+                } finally {
+                  setReclaiming(null);
+                }
+              }}
+            >
+              <Text style={canReclaim ? styles.retryText : styles.disabledText}>
+                {!props.online
+                  ? 'Recuperar · sin red'
+                  : !props.wallet.session
+                    ? 'Recuperar · conecta la wallet'
+                    : `Recuperar $${formatUsdc(stuck.amount)}`}
+              </Text>
+            </Pressable>
+          )}
+
+          <Text style={styles.stuckFoot}>
+            Vuelve el USDC y la mayor parte de la renta. Unos 0.0014 SOL por billete se
+            quedan en su nonce, que solo podia cerrar la clave que ya no existe.
+          </Text>
+
+          {reclaimError && <Text style={styles.reclaimError}>{reclaimError}</Text>}
         </View>
       )}
 
@@ -310,6 +374,15 @@ const styles = StyleSheet.create({
     borderColor: theme.warning,
   },
   stuckTitle: { color: theme.warning, fontSize: 15, fontWeight: '700' },
+  stuckFoot: { color: theme.textMuted, fontSize: 11, lineHeight: 15, marginTop: spacing(1.5) },
+  reclaimWorking: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing(1.5),
+    marginTop: spacing(2),
+  },
+  reclaimWorkingText: { color: theme.text, fontSize: 13 },
+  reclaimError: { color: theme.danger, fontSize: 12, lineHeight: 17, marginTop: spacing(1) },
   stuckBody: { color: theme.textMuted, fontSize: 12, lineHeight: 17, marginTop: spacing(1) },
   noteAmount: { color: theme.text, fontSize: 20, fontWeight: '600' },
   noteMeta: { color: theme.textMuted, fontSize: 12, marginTop: 2 },

@@ -145,15 +145,22 @@ export function DeviceKeyCard({ state, online }: Props) {
         </Text>
       )}
 
+      {/*
+        Decia «para poder cobrar y pagar», y cobrar no cuesta nada: liquidar un cobro
+        solo reenvia la transaccion que ya firmo el pagador, y quien paga la comision es
+        su clave, no la nuestra. Un movil que solo cobra no necesita SOL jamas, y
+        decirle lo contrario le pide que resuelva un problema que no tiene.
+      */}
       {needsFunding ? (
         <Text style={styles.warning}>
           Sin SOL suficiente para pagar comisiones. Envia al menos{' '}
           {(DEVICE_KEY_FUNDING_LAMPORTS / LAMPORTS_PER_SOL).toFixed(2)} SOL a esta
-          direccion para poder cobrar y pagar billetes.
+          direccion para poder PAGAR. Cobrar no cuesta nada: la comision de cada cobro la
+          paga quien paga.
         </Text>
       ) : (
         <Text style={styles.hint}>
-          Paga las comisiones de cada pago. Necesita SOL propio, en devnet.
+          Paga las comisiones de tus pagos. Cobrar no cuesta nada.
         </Text>
       )}
 

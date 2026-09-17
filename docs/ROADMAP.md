@@ -187,7 +187,17 @@ Ugly but working. No polish here.
       verified better than a stranger **with no coverage at all**
       — with network, the collateral is checked before settling. A banknote that no longer
       exists on chain stops the sale: "NO entregues nada"
-- [ ] Day 15 — Settlement queue + background task
+- [x] Day 15 — Settlement queue + background task, **and `reclaim` in the app**
+      — `reclaim` had existed in the program since day 7, with tests, and had no builder
+      in the SDK and no way out in the UI. The orange "banknotes you cannot spend" card
+      was a dead end pointing at real money: $40 of it, recovered on a real Seeker in one
+      wallet approval
+      — packing measured, not guessed: 336 B of base plus 81 per reclaim, so eight come to
+      984 B. Eleven would fit at 1227 B against a 1232 limit, and overshooting does not
+      fail at signing, it fails at sending
+      — the recovery is **not total, and the app says so**: `reclaim` closes the slot and
+      the vault but not the nonce account, whose authority is the device key that no
+      longer exists. Nobody can close it. ~0.0014 SOL per banknote stays there
       — **a real defect found on day 13, already fixed**: the queue verified every voucher
       against this phone's key, including the ones it had SENT, which are addressed to
       somebody else by definition. So the payer could never settle its own payments —

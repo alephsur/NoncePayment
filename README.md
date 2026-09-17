@@ -63,6 +63,7 @@ where a normal one expires after about a minute.
 | Payout straight to the recipient's wallet | ✅ **verified on chain** — $4 landed in the wallet, no manual transfer |
 | Withdraw received USDC to the wallet | ✅ **$2 moved on a real phone** — for a phone with no wallet connected |
 | Background settlement queue | ✅ **working both ways** — and a dead voucher is told apart from a retryable one |
+| `reclaim` — recovering banknotes a lost device key orphaned | ✅ **$40 recovered on a real phone**, in one wallet approval |
 | `.skr` domains (SKR bonus) | ⬜ day 18 |
 
 ---

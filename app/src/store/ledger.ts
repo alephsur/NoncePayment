@@ -100,12 +100,17 @@ export function offlineBalance(ledger: Ledger): bigint {
  * que este telefono no puede mover. Pero tiene que verse — es dinero real, bloqueado —
  * y por eso el recuento viaja en el informe.
  */
-export function unspendableNotes(ledger: Ledger): { count: number; amount: bigint } {
+export function unspendableNotes(ledger: Ledger): {
+  count: number;
+  amount: bigint;
+  notes: StuckNote[];
+} {
   const report = ledger.lastSyncReport;
-  if (!report) return { count: 0, amount: 0n };
+  if (!report) return { count: 0, amount: 0n, notes: [] };
   return {
     count: report.foreign + report.broken,
     amount: BigInt(report.unspendable ?? '0'),
+    notes: report.stuck ?? [],
   };
 }
 
@@ -145,6 +150,23 @@ export interface SyncReport {
   broken: number;
   /** Locked in the `foreign` and `broken` ones, minor units. A string: this is JSON. */
   unspendable: string;
+  /**
+   * Los atrapados, con lo justo para poder rescatarlos.
+   *
+   * No son `slots`, y la distincion importa: un billete que este movil no puede firmar
+   * jamas debe entrar en la lista de lo gastable, porque seria ofrecer para pagar un
+   * dinero que no se puede mover. Pero para llamar a `reclaim` hace falta su indice, y
+   * sin esto habria que volver a leer la cadena solo para averiguarlo.
+   */
+  stuck?: StuckNote[];
+}
+
+export interface StuckNote {
+  index: number;
+  /** Unidades minimas, como string. Esto es JSON. */
+  amount: string;
+  /** `foreign`: es de una clave de dispositivo anterior. `broken`: su nonce no sirve. */
+  reason: 'foreign' | 'broken';
 }
 
 /**
@@ -169,7 +191,7 @@ export function mergeChainSlots(
   deviceKey: string,
   now: string = new Date().toISOString(),
 ): { ledger: Ledger; report: SyncReport } {
-  const report: SyncReport = { spendable: 0, foreign: 0, broken: 0, unspendable: '0' };
+  const report: SyncReport = { spendable: 0, foreign: 0, broken: 0, unspendable: '0', stuck: [] };
   let unspendable = 0n;
   const local = new Map(
     ledger.slots.filter((s) => s.owner === owner).map((s) => [s.nonceAccount, s]),
@@ -180,11 +202,13 @@ export function mergeChainSlots(
     if (c.authorizedSigner.toBase58() !== deviceKey) {
       report.foreign++;
       unspendable += c.amount;
+      report.stuck!.push({ index: c.index, amount: c.amount.toString(), reason: 'foreign' });
       continue;
     }
     if (!c.nonceValue || !c.nonceAuthorityMatches) {
       report.broken++;
       unspendable += c.amount;
+      report.stuck!.push({ index: c.index, amount: c.amount.toString(), reason: 'broken' });
       continue;
     }
     report.spendable++;
