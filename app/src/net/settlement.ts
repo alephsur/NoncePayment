@@ -12,6 +12,8 @@ import * as BackgroundFetch from 'expo-background-fetch';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { settleVoucher, verifyVoucher } from '@noncepayment/sdk';
 import { readLedger, updateLedger, PendingVoucher } from '../store/ledger';
+import { readDeviceKeyIdentity } from '../store/deviceKey';
+import { readSession } from '../store/walletSession';
 
 export const SETTLEMENT_TASK = 'noncepay.settlement.v1';
 
@@ -42,12 +44,31 @@ export async function isOnline(): Promise<boolean> {
   return Boolean(state.isConnected && state.isInternetReachable !== false);
 }
 
+/**
+ * Las direcciones a las que este movil puede cobrar.
+ *
+ * Dos, y en este orden: la wallet del usuario cuando hay una conectada — que es la que
+ * se ofrece al cobrar, porque el dinero aterriza donde se puede gastar — y la clave de
+ * dispositivo, que existe siempre y es lo unico que hay cuando no hay wallet.
+ *
+ * Se leen aqui, cada vez, en lugar de recibirlas como argumento. La tarea de fondo vive
+ * mas que cualquier pantalla: capturar una identidad al registrarla significaba que
+ * conectar una wallet despues dejaba a la tarea liquidando contra una lista incompleta,
+ * sin que nada lo dijera. Ninguna de las dos lecturas pide biometria ni red.
+ */
+export async function selfIdentities(): Promise<PublicKey[]> {
+  const [key, session] = await Promise.all([readDeviceKeyIdentity(), readSession()]);
+  const out: PublicKey[] = [];
+  if (session) out.push(session.publicKey);
+  if (key) out.push(key.publicKey);
+  return out;
+}
+
 /** Intenta liquidar todo lo pendiente. Idempotente y seguro de llamar a menudo. */
-export async function drainSettlementQueue(
-  self: PublicKey,
-): Promise<{ settled: number; failed: number }> {
+export async function drainSettlementQueue(): Promise<{ settled: number; failed: number }> {
   if (!(await isOnline())) return { settled: 0, failed: 0 };
 
+  const identities = await selfIdentities();
   const ledger = await readLedger();
   const conn = connection();
   let settled = 0;
@@ -69,7 +90,15 @@ export async function drainSettlementQueue(
       // proyecto es que basta con que lo haga cualquiera de los dos. Encontrado con
       // cinco billetes dados por gastados en el movil y todavia abiertos en cadena.
       const expected =
-        item.direction === 'received' ? self : new PublicKey(item.envelope.hint.recipient);
+        item.direction === 'received'
+          ? identities.find((k) => k.toBase58() === item.envelope.hint.recipient)
+          : new PublicKey(item.envelope.hint.recipient);
+      if (!expected) {
+        throw new Error(
+          'Este cobro va a una direccion que este movil ya no controla. Vuelve a ' +
+            'conectar la wallet con la que lo cobraste.',
+        );
+      }
       const verified = verifyVoucher(item.envelope, expected);
       const result = await settleVoucher(conn, verified);
       item.settledSignature = result.signature;
@@ -114,14 +143,14 @@ export function abandonedVouchers(pending: PendingVoucher[]): PendingVoucher[] {
  * dinero parado sin salida. Mientras el billete siga abierto en cadena el voucher sigue
  * siendo bueno, asi que tiene que haber una manera de decir «vuelve a intentarlo».
  */
-export async function retrySettlement(self: PublicKey): Promise<{ settled: number; failed: number }> {
+export async function retrySettlement(): Promise<{ settled: number; failed: number }> {
   await updateLedger((l) => ({
     ...l,
     pending: l.pending.map((p) =>
       p.settledSignature ? p : { ...p, attempts: 0, lastError: undefined },
     ),
   }));
-  return drainSettlementQueue(self);
+  return drainSettlementQueue();
 }
 
 /**
@@ -130,11 +159,11 @@ export async function retrySettlement(self: PublicKey): Promise<{ settled: numbe
  * Es lo que hace que el dinero "aparezca solo" al recuperar cobertura, sin abrir la
  * app. Es un detalle de UX nativo imposible en web, y por tanto puntua.
  */
-export function registerSettlementTask(self: PublicKey): void {
+export function registerSettlementTask(): void {
   if (!TaskManager.isTaskDefined(SETTLEMENT_TASK)) {
     TaskManager.defineTask(SETTLEMENT_TASK, async () => {
       try {
-        const { settled } = await drainSettlementQueue(self);
+        const { settled } = await drainSettlementQueue();
         return settled > 0
           ? BackgroundFetch.BackgroundFetchResult.NewData
           : BackgroundFetch.BackgroundFetchResult.NoData;

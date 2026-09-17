@@ -164,7 +164,7 @@ Ugly but working. No polish here.
       — and the anti-double-spend guarantee was watched working outside a test: three
       vouchers signed against banknotes already redeemed came back `Blockhash not found`,
       dead forever. Settlement now says so instead of retrying ten times
-- [ ] Day 14 — **Receive**: `verifyVoucher()` offline + verification levels
+- [x] Day 14 — **Receive**: `verifyVoucher()` offline + verification levels
       — **the way out, which no plan had**: money received is not a banknote, it is plain
       USDC in the device key's token account, and the private key never leaves the
       Keystore — so without an in-app withdrawal that money can never move again.
@@ -177,6 +177,16 @@ Ugly but working. No polish here.
       Links at `identity.uri` tying the domain to the package, and `noncepayment.app` is
       a placeholder we do not own. Seed Vault and Jupiter do not ask. Day 28, with the
       signed release — and both certificate fingerprints, debug and release
+      — **and then the withdrawal mostly stopped being needed**: a payment now names the
+      recipient's WALLET when one is connected, so the money lands where it can be spent.
+      Verified on chain: $4 straight into the Nord 2's wallet. The device key is still the
+      payee when there is no wallet, and the withdrawal is what gets that money out
+      — three verification levels the recipient actually sees, in their language rather
+      than ours. `CACHED_STATE` had sat unused in the enum since day 1 and now earns its
+      place: the receiver caches the collateral checks it makes, so a regular payer can be
+      verified better than a stranger **with no coverage at all**
+      — with network, the collateral is checked before settling. A banknote that no longer
+      exists on chain stops the sale: "NO entregues nada"
 - [ ] Day 15 — Settlement queue + background task
       — **a real defect found on day 13, already fixed**: the queue verified every voucher
       against this phone's key, including the ones it had SENT, which are addressed to

@@ -45,7 +45,15 @@ export function HomeScreen(props: Props) {
     return <PayScreen ledger={props.ledger} deviceKey={props.deviceKey} onDone={back} />;
   }
   if (tab === 'receive' && identity) {
-    return <ReceiveScreen deviceKey={identity.publicKey} onDone={back} />;
+    return (
+      <ReceiveScreen
+        deviceKey={identity.publicKey}
+        wallet={props.wallet}
+        online={props.online}
+        ledger={props.ledger}
+        onDone={back}
+      />
+    );
   }
   if (tab === 'load' && identity && props.wallet.session) {
     return <LoadScreen wallet={props.wallet} deviceKey={identity.publicKey} onDone={back} />;
@@ -203,7 +211,7 @@ export function HomeScreen(props: Props) {
                 onPress={async () => {
                   setRetrying(true);
                   try {
-                    await retrySettlement(identity.publicKey);
+                    await retrySettlement();
                     await props.onRefresh();
                   } finally {
                     setRetrying(false);

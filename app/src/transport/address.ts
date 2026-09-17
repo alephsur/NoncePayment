@@ -20,8 +20,13 @@ import { PublicKey } from '@solana/web3.js';
 
 export interface AddressTag {
   v: 1;
-  /** Clave de dispositivo del receptor: a quien nombra el voucher. */
+  /** A quien nombra el voucher: la wallet del receptor, o su clave de dispositivo. */
   recipient: string;
+  /**
+   * Cual de las dos es. Solo para lo que el pagador ve en pantalla — no se decide nada
+   * con ello, y viene del otro telefono, asi que no se le da mas credito que a un rotulo.
+   */
+  kind?: 'wallet' | 'device';
   /** Lo que se le enseña al usuario. Un dominio .skr cuando lo haya (dia 18). */
   label?: string;
 }
@@ -59,6 +64,7 @@ export function decodeAddressTag(bytes: Uint8Array): AddressTag {
   return {
     v: VERSION,
     recipient: recipient.toBase58(),
+    kind: raw.kind === 'wallet' || raw.kind === 'device' ? raw.kind : undefined,
     label: typeof raw.label === 'string' ? raw.label : undefined,
   };
 }

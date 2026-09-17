@@ -37,6 +37,22 @@ export interface Ledger {
    * red. Un string, que esto es JSON.
    */
   receivedUsdc?: string;
+  /**
+   * Lo que sabemos de los billetes AJENOS que nos han pagado, por PDA del slot.
+   *
+   * Es lo que hace posible el nivel intermedio de verificacion sin cobertura. La firma
+   * de un voucher se comprueba sin red, pero que el billete siga con dinero detras no —
+   * salvo que ya lo hayamos mirado alguna vez. Un pagador habitual se convierte asi en
+   * alguien de quien se puede decir algo mas que «la firma es buena».
+   */
+  slotChecks?: Record<string, SlotCheck>;
+}
+
+export interface SlotCheck {
+  /** El slot existia en la cadena y por tanto seguia con su colateral. */
+  funded: boolean;
+  /** ISO 8601. Un dato viejo vale menos, y el usuario tiene que poder verlo. */
+  at: string;
 }
 
 const EMPTY: Ledger = { slots: [], pending: [] };
@@ -101,6 +117,18 @@ export function unspendableNotes(ledger: Ledger): { count: number; amount: bigin
  */
 export function receivedBalance(ledger: Ledger): bigint {
   return BigInt(ledger.receivedUsdc ?? '0');
+}
+
+/** Lo ultimo que sabemos de un billete ajeno. `undefined` = nunca lo hemos mirado. */
+export function readSlotCheck(ledger: Ledger, slot: string): SlotCheck | undefined {
+  return ledger.slotChecks?.[slot];
+}
+
+export async function writeSlotCheck(slot: string, funded: boolean): Promise<Ledger> {
+  return updateLedger((l) => ({
+    ...l,
+    slotChecks: { ...(l.slotChecks ?? {}), [slot]: { funded, at: new Date().toISOString() } },
+  }));
 }
 
 /** Elige el billete mas pequeño que cubra el importe. */

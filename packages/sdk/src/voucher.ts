@@ -192,6 +192,41 @@ export function buildVoucher(params: {
  *
  * Por eso el nivel maximo alcanzable sin red es CRYPTO_ONLY.
  */
+/**
+ * Verifica contra cualquiera de las identidades que este movil controla.
+ *
+ * Un telefono puede cobrar a dos direcciones distintas: su clave de dispositivo, que
+ * existe siempre, y la wallet del usuario cuando la tiene conectada — y esa es la que
+ * se ofrece, porque el dinero aterriza donde se puede usar y no hay que traspasarlo
+ * despues. Un voucher legitimo puede ir a cualquiera de las dos: a la wallet si se
+ * cobro con ella conectada, a la clave si se cobro sin ella, o si venia de una version
+ * anterior.
+ *
+ * Sigue siendo la misma comprobacion de seguridad, no una mas laxa: cada candidata es
+ * una identidad de la que el usuario es dueño. Lo que NO se puede hacer es aceptar un
+ * voucher dirigido a un tercero, y eso no cambia.
+ */
+export function verifyVoucherForAny(
+  envelope: VoucherEnvelope,
+  candidates: PublicKey[],
+): { verified: VerifiedVoucher; matched: PublicKey } {
+  if (candidates.length === 0) {
+    throw new VoucherError('Este movil no tiene ninguna identidad de cobro', 'WRONG_RECIPIENT');
+  }
+  let last: unknown;
+  for (const candidate of candidates) {
+    try {
+      return { verified: verifyVoucher(envelope, candidate), matched: candidate };
+    } catch (e) {
+      // Solo el destinatario justifica probar la siguiente. Una firma rota lo esta para
+      // todas, y seguir intentando solo cambiaria el mensaje de error por uno peor.
+      if (!(e instanceof VoucherError) || e.code !== 'WRONG_RECIPIENT') throw e;
+      last = e;
+    }
+  }
+  throw last;
+}
+
 export function verifyVoucher(
   envelope: VoucherEnvelope,
   expectedRecipient: PublicKey,

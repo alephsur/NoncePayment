@@ -104,9 +104,9 @@ export default function App() {
     const self = deviceKey.identity?.publicKey;
     if (!self) return;
 
-    registerSettlementTask(self);
+    registerSettlementTask();
     // One warm attempt on open: if there is network, settle what is pending now.
-    drainSettlementQueue(self)
+    drainSettlementQueue()
       .then(async () => setLedger(await readLedger()))
       .catch(() => undefined);
   }, [deviceKey.identity]);
