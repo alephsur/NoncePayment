@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { PublicKey } from '@solana/web3.js';
+import * as Network from 'expo-network';
 
 import { useDeviceKey } from './store/useDeviceKey';
 import { readLedger, offlineBalance, updateLedger, Ledger } from './store/ledger';
@@ -40,6 +41,14 @@ export default function App() {
     try {
       const nowOnline = await isOnline();
       setOnline(nowOnline);
+
+      // Lo primero con red es liquidar lo que se cobro sin ella: es la ventana de riesgo
+      // de doble gasto, y el sync de despues ya ve el billete cerrado y el saldo movido.
+      if (nowOnline && self) {
+        await drainSettlementQueue().catch((e) =>
+          console.warn('[settlement] liquidacion fallida:', e),
+        );
+      }
 
       if (nowOnline && self) {
         try {
@@ -89,6 +98,24 @@ export default function App() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') refresh();
+    });
+    return () => sub.remove();
+  }, [refresh]);
+
+  /**
+   * And when the network comes back with the app already in front.
+   *
+   * Leaving airplane mode from the quick settings does not background the app, so the
+   * listener above never fired: the payment sat in «Pendiente de liquidar» until the app
+   * was killed and reopened. Only the offline → online edge matters; the listener also
+   * fires on every wifi/cell change.
+   */
+  const wasOnline = useRef(online);
+  wasOnline.current = online;
+  useEffect(() => {
+    const sub = Network.addNetworkStateListener((state) => {
+      const nowOnline = Boolean(state.isConnected && state.isInternetReachable !== false);
+      if (nowOnline !== wasOnline.current) refresh();
     });
     return () => sub.remove();
   }, [refresh]);

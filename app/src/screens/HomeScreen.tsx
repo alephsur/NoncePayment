@@ -297,8 +297,10 @@ export function HomeScreen(props: Props) {
                 {p.direction === 'received' ? 'Recibido' : 'Enviado'} ·{' '}
                 {p.attempts > 0 ? `${p.attempts} intentos` : 'esperando red'}
               </Text>
-              {p.lastError?.startsWith('DOBLE GASTO') && (
+              {p.lastError?.startsWith('DOBLE GASTO') ? (
                 <Text style={styles.fraud}>{p.lastError}</Text>
+              ) : (
+                p.lastError && <Text style={styles.noteMeta}>{p.lastError}</Text>
               )}
             </View>
           ))}

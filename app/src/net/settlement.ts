@@ -64,8 +64,25 @@ export async function selfIdentities(): Promise<PublicKey[]> {
   return out;
 }
 
-/** Intenta liquidar todo lo pendiente. Idempotente y seguro de llamar a menudo. */
-export async function drainSettlementQueue(): Promise<{ settled: number; failed: number }> {
+let draining: Promise<{ settled: number; failed: number }> | null = null;
+
+/**
+ * Intenta liquidar todo lo pendiente. Idempotente y seguro de llamar a menudo.
+ *
+ * Una sola pasada a la vez. Dos en paralelo enviaban el mismo voucher dos veces: la que
+ * llegaba segunda encontraba el nonce ya avanzado y marcaba como DOBLE GASTO un cobro
+ * que acababa de liquidarse bien. Quien llama durante una pasada se une a ella.
+ */
+export function drainSettlementQueue(): Promise<{ settled: number; failed: number }> {
+  if (!draining) {
+    draining = drainOnce().finally(() => {
+      draining = null;
+    });
+  }
+  return draining;
+}
+
+async function drainOnce(): Promise<{ settled: number; failed: number }> {
   if (!(await isOnline())) return { settled: 0, failed: 0 };
 
   const identities = await selfIdentities();
@@ -122,7 +139,13 @@ export async function drainSettlementQueue(): Promise<{ settled: number; failed:
     }
   }
 
-  await updateLedger((l) => ({ ...l, pending: ledger.pending }));
+  // Se fusiona por voucher, no se sobrescribe la cola: lo que se cobro mientras esta
+  // pasada hablaba con la red se añadio despues de leerla, y pisarla lo borraba.
+  const worked = new Map(ledger.pending.map((p) => [p.envelope.tx, p]));
+  await updateLedger((l) => ({
+    ...l,
+    pending: l.pending.map((p) => worked.get(p.envelope.tx) ?? p),
+  }));
   return { settled, failed };
 }
 
@@ -144,6 +167,8 @@ export function abandonedVouchers(pending: PendingVoucher[]): PendingVoucher[] {
  * siendo bueno, asi que tiene que haber una manera de decir «vuelve a intentarlo».
  */
 export async function retrySettlement(): Promise<{ settled: number; failed: number }> {
+  // Una pasada en curso escribiria al acabar los intentos viejos encima del reinicio.
+  await draining?.catch(() => undefined);
   await updateLedger((l) => ({
     ...l,
     pending: l.pending.map((p) =>

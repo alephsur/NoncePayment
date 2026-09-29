@@ -1,7 +1,11 @@
-import { Keypair, PublicKey } from '@solana/web3.js';
+import { Keypair, PublicKey, Transaction } from '@solana/web3.js';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const bs58 = require('bs58');
 import { buildVoucher, verifyVoucher } from '../src/voucher';
 import { CachedSlot, VoucherError } from '../src/types';
 import { slotPda } from '../src/pdas';
+import { voucherSignature } from '../src/settle';
+import { base58Encode } from '../src/bytes';
 
 const owner = Keypair.generate();
 const deviceKey = Keypair.generate();
@@ -99,6 +103,19 @@ check('pago parcial: 5 de un billete de 20, cambio implicito', () => {
   const partial = buildVoucher({ slot, deviceKey, recipient: recipient.publicKey, amount: 5_000_000n });
   const v = verifyVoucher(partial, recipient.publicKey);
   if (v.amount !== 5_000_000n) throw new Error('importe incorrecto');
+});
+
+check('la firma del voucher es la que la red le asignara', () => {
+  // Pagador y receptor liquidan el mismo voucher; distinguir «ya lo cobro la otra
+  // parte» de un doble gasto depende de que esta firma coincida con la de la red.
+  const env = buildVoucher({ slot, deviceKey, recipient: recipient.publicKey, amount: 1_000_000n });
+  const tx = Transaction.from(Buffer.from(env.tx, 'base64'));
+  if (voucherSignature(verifyVoucher(env, recipient.publicKey).rawTransaction) !== bs58.encode(tx.signature!)) {
+    throw new Error('firma distinta');
+  }
+  if (base58Encode(new Uint8Array([0, 0, 1])) !== bs58.encode(Buffer.from([0, 0, 1]))) {
+    throw new Error('ceros a la izquierda mal codificados');
+  }
 });
 
 console.log(`\n  ${pass} pasan, ${fail} fallan\n`);
