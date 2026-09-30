@@ -10,7 +10,8 @@
     "build:apk": "eas build --profile preview --platform android",
     "typecheck": "tsc --noEmit",
     "ios": "expo run:ios",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "eas-build-pre-install": "cd ../packages/sdk && npm ci"
   },
   "dependencies": {
     "@noncepayment/sdk": "file:../packages/sdk",
